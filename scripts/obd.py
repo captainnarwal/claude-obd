@@ -111,6 +111,24 @@ def run_quiet(cmd: list, env: dict) -> int:
         return 1
 
 
+def run_captured(cmd: list, env: dict) -> "subprocess.CompletedProcess":
+    try:
+        return subprocess.run(cmd, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except OSError as e:
+        return subprocess.CompletedProcess(cmd, 1, "", str(e))
+
+
+def selftest_reason(res: "subprocess.CompletedProcess") -> str:
+    """Name the failing stage from the selftest envelope, else the tail of stderr."""
+    try:
+        bad = [s for s in json.loads(res.stdout)["data"]["stages"] if not s.get("ok")]
+        if bad:
+            return f"{bad[0]['stage']}: {bad[0].get('error', '')}"[:300]
+        return (json.loads(res.stdout).get("summary") or "")[:300]
+    except (ValueError, KeyError, TypeError):
+        return ((res.stderr or res.stdout or "no output").strip()[-300:])
+
+
 def doctor() -> None:
     checks = []
 
@@ -135,10 +153,11 @@ def doctor() -> None:
         else:
             add("engine_version", False, f"engine {sv or 'none'} vs plugin {pv}", "Run /obd setup to refresh the environment")
         env = {k: v for k, v in os.environ.items() if k != "OBD_PYTHON"}
-        if run_quiet([sys.executable, str(SELF), "selftest", "--json"], env) == 0:
+        st = run_captured([sys.executable, str(SELF), "selftest", "--json"], env)
+        if st.returncode == 0:
             add("selftest", True, "pipeline passed on the bundled sample")
         else:
-            add("selftest", False, "self-test failed",
+            add("selftest", False, f"self-test failed: {selftest_reason(st)}",
                 "Run /obd setup; if it persists run `python scripts/obd.py selftest` and read the stage detail")
         if run_quiet([sys.executable, str(SELF), "list", "--json"], env) == 0:
             add("workspace", True, "current folder readable")
