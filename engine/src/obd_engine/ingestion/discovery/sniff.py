@@ -26,7 +26,7 @@ class FileProfile:
     path: str
     file_name: str
     size: int
-    format: str  # csv | xlsx | xls | unknown
+    format: str  # csv | csv_long | xlsx | xls | unknown
     encoding: str = "utf-8"
     delimiter: str = ","
     decimal: str = "."
@@ -40,6 +40,7 @@ class FileProfile:
     sample_rows: list[list[str]] = field(default_factory=list)
     est_rows: int | None = None
     notes: list[str] = field(default_factory=list)
+    long_layout: dict[str, Any] | None = None  # set when format == 'csv_long' (one reading per row)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -204,7 +205,10 @@ def sniff_file(path: Path, sheet: str | None = None) -> FileProfile:
         from obd_engine.ingestion.adapters.generic_excel import sniff_excel
 
         return sniff_excel(path, sheet)
-    return sniff_text(path)
+    prof = sniff_text(path)
+    from obd_engine.ingestion.adapters.long_format import detect_long
+
+    return detect_long(prof) or prof
 
 
 # ---- timestamps ------------------------------------------------------------

@@ -46,7 +46,7 @@ Each finding is tagged **observation** (measured), **inference** or **hypothesis
 ```
 
 ## Supported inputs
-CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, unit rows or units in headers) and XLSX (cached values only; macro-enabled files are refused; large workbooks should be exported to CSV). A Torque Pro adapter is included; other apps work through the generic adapters.
+CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, unit rows or units in headers) and XLSX (cached values only; macro-enabled files are refused; large workbooks should be exported to CSV). A Torque Pro adapter is included. Long-format logs (one reading per row: time, PID, value, optional unit) are pivoted to one column per PID automatically. Other apps work through the generic adapters.
 
 ## Limits and honesty
 - Not a diagnosis. Analytical assistance, not a substitute for physical inspection.

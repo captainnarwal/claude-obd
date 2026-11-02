@@ -46,7 +46,7 @@ Each engine call is a Bash command, so Claude Code asks before the first one. To
 
 ## What it does (v0.1)
 
-- **Ingestion:** CSV/TSV/TXT and XLSX, Torque Pro adapter, encoding/delimiter/decimal/preamble detection, 50–500 MB files via streaming Parquet.
+- **Ingestion:** CSV/TSV/TXT and XLSX, Torque Pro adapter, long-format (one reading per row) logs, encoding/delimiter/decimal/preamble detection, 50–500 MB files via streaming Parquet.
 - **Mapping:** ~60 canonical parameters with a deterministic, explainable scorer. Ambiguous columns (`TEMP`, `MAP` without unit, fuel trims without a bank…) are never guessed; Claude asks you.
 - **Normalization:** unit conversion to metric, sentinel and plausibility flags, gap/reset segmentation, no resampling.
 - **Analysis:** data quality, statistics (also by operating condition), time-series behavior, correlation, anomaly detection (robust rolling statistics). Findings are tagged observation / inference / hypothesis with evidence references.
@@ -68,7 +68,17 @@ cd .. && PYTHONPATH=. engine/.venv/Scripts/python -m tools.synthetic_log_generat
 
 The engine CLI is `scripts/obd <command> --json` (see `skills/automotive-data-analysis/references/commands.md`). Design: [automotive-intelligence-design-doc.md](automotive-intelligence-design-doc.md). User guide: [docs/user-guide.md](docs/user-guide.md).
 
-Torque Pro support follows the documented export format and synthetic fixtures; it has not yet been validated against real exported files — contributions of anonymized samples are welcome.
+App support status:
+
+| App | Status |
+|---|---|
+| Car Scanner ELM OBD2 (wide CSV) | Validated on real exports |
+| Car Scanner (long `SECONDS/PID/VALUE/UNITS` style) | Synthetic fixtures, header names from forum reports |
+| Torque Pro | Documented format and synthetic fixtures |
+| BlueDriver, OBDLink app | Documented format traits (UTF-16, preamble, `Time(s)`; elapsed seconds or date-time); synthetic fixtures |
+| OBD Fusion, OBDwiz, OBD Auto Doctor, Dash Command | Best effort through the generic adapter; exact headers not documented online |
+
+Anonymized sample exports from any of these apps are welcome.
 
 ## License
 

@@ -13,12 +13,13 @@ from obd_engine.cli.envelope import ObdError
 from obd_engine.ingestion.discovery.sniff import FileProfile, NULL_TOKENS, _KNOWN_UNITS
 from obd_engine.reference.loader import canon_unit
 
+_SOURCE_TAG = re.compile(r"\s*\*\s*obd\s*$", re.I)  # "Engine Speed (RPM) *OBD": marks a PID read from the ECU
 _TRAILING_GROUP = re.compile(r"^(?P<name>.*?)\s*[\(\[](?P<unit>[^()\[\]]{1,16})[\)\]]\s*$")
 
 
 def split_header(header: str, unit_row_unit: str | None = None) -> tuple[str, str]:
     """'Coolant Temp (°F)' -> ('Coolant Temp', '°F'). Only known units are peeled off."""
-    name, unit = header.strip(), canon_unit(unit_row_unit) if unit_row_unit else ""
+    name, unit = _SOURCE_TAG.sub("", header.strip()), canon_unit(unit_row_unit) if unit_row_unit else ""
     m = _TRAILING_GROUP.match(name)
     if m and m.group("unit").strip().lower() in _KNOWN_UNITS:
         name, hu = m.group("name").strip(), canon_unit(m.group("unit"))

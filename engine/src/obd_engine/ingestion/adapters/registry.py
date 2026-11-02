@@ -5,10 +5,11 @@ from __future__ import annotations
 from obd_engine.cli.envelope import ObdError
 from obd_engine.ingestion.adapters.base import Adapter, GenericDelimitedAdapter
 from obd_engine.ingestion.adapters.generic_excel import GenericExcelAdapter
+from obd_engine.ingestion.adapters.long_format import LongFormatAdapter
 from obd_engine.ingestion.adapters.torque_pro import TorqueProAdapter
 from obd_engine.ingestion.discovery.sniff import FileProfile
 
-ADAPTERS: list[Adapter] = [TorqueProAdapter(), GenericDelimitedAdapter(), GenericExcelAdapter()]
+ADAPTERS: list[Adapter] = [TorqueProAdapter(), LongFormatAdapter(), GenericDelimitedAdapter(), GenericExcelAdapter()]
 
 
 def select_adapter(profile: FileProfile) -> tuple[Adapter, float]:
