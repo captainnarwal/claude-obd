@@ -190,11 +190,19 @@ def setup(install: bool) -> None:
              "Ask the user for permission, then run setup with --install-uv (installs uv for this user only).")
     log(f"Using uv: {uv}")
     env = dict(os.environ, UV_PROJECT_ENVIRONMENT=str(VENV))
-    rc = subprocess.call([uv, "sync", "--frozen", "--no-dev", "--no-editable", "--reinstall-package", "obd-engine",
+    # uv won't rebuild a same-version local package, so force it, unless the venv already has this engine version
+    # (e.g. the MCP server built it first; on Windows its running obd-mcp.exe can't be replaced).
+    installed = ""
+    if venv_python().exists():
+        installed = subprocess.run([str(venv_python()), "-c", "import obd_engine; print(obd_engine.__version__)"],
+                                   capture_output=True, text=True).stdout.strip()
+    reinstall = [] if installed == engine_version and not os.environ.get("OBD_FORCE_REINSTALL") else ["--reinstall-package", "obd-engine"]
+    rc = subprocess.call([uv, "sync", "--frozen", "--no-dev", "--no-editable", *reinstall,
                           "--python", "3.12", "--project", str(ROOT / "engine")], env=env, stdout=sys.stderr)
     if rc != 0:
         fail("SETUP_FAILED", "uv could not build the engine environment",
-             "Check your internet connection or proxy, then re-run /obd setup. Details are in the output above.")
+             "Check your internet connection or proxy, then re-run /obd setup. If an older engine is installed and the obd MCP server "
+             "is running (Windows locks it), disconnect it in /mcp first. Details are in the output above.")
     installer = "uv"
 
     vpy = str(venv_python())
