@@ -7,9 +7,9 @@ The full design is in [../automotive-intelligence-design-doc.md](../automotive-i
 .claude-plugin/        plugin.json, marketplace.json (plugin name obd-analyst; "claude-" names are reserved)
 skills/                obd (router), automotive-data-analysis, vehicle-report-generation, communicating-findings,
                        engine-diagnostics, obd-parameter-interpretation, performance-ecu-log-analysis
-hooks/                 hooks.json + scripts/hooks/read-guard.sh (non-blocking Read-size steer)
-scripts/obd            bash launcher: venv lookup, version check, SETUP_REQUIRED envelope (exit 4)
-scripts/setup/         setup.sh (uv or venv+pip, selftest, setup.json), doctor.sh
+hooks/                 hooks.json + scripts/hooks/read_guard.py (non-blocking Read-size steer)
+scripts/obd(.py)       python launcher (obd = sh wrapper; falls back to uv when no Python): venv lookup, version check, SETUP_REQUIRED envelope (exit 4)
+scripts/setup/         setup.sh (uv sync, selftest, setup.json; uv is required and installed on request), doctor.sh
 engine/src/obd_engine/
   cli/                 envelope.py (JSON envelope, budget thinning), commands.py, analysis_commands.py, vehicle_commands.py,
                        lookup_commands.py, main.py (execute() is shared by the CLI and the MCP server)

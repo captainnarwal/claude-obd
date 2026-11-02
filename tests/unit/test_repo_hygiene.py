@@ -64,9 +64,24 @@ def test_commands_documented_in_cheatsheet():
 
 
 def test_launchers_are_executable_text():
-    for p in ("scripts/obd", "scripts/setup/setup.sh", "scripts/setup/doctor.sh"):
+    for p in ("scripts/obd", "scripts/setup/setup.sh", "scripts/setup/doctor.sh", "scripts/hooks/read-guard.sh"):
         b = (ROOT / p).read_bytes()
-        assert b.startswith(b"#!/usr/bin/env bash") and b"\r\n" not in b, p     # CRLF would break Git Bash
+        assert b.startswith(b"#!/bin/sh") and b"\r\n" not in b, p     # CRLF would break sh on Linux/macOS
+
+
+def test_launchers_have_exec_bit_in_git():
+    import shutil
+    import subprocess
+
+    import pytest
+
+    if shutil.which("git") is None or not (ROOT / ".git").exists():
+        pytest.skip("not a git checkout")
+    files = ["scripts/obd", "scripts/obd.py", "scripts/setup/setup.sh", "scripts/setup/doctor.sh",
+             "scripts/hooks/read-guard.sh", "scripts/hooks/read_guard.py"]
+    out = subprocess.run(["git", "ls-files", "-s", *files], cwd=ROOT, capture_output=True, text=True).stdout
+    modes = {line.split("\t")[1]: line.split()[0] for line in out.splitlines()}
+    assert modes and all(m == "100755" for m in modes.values()), modes     # 644 => "Permission denied" on Linux/macOS
 
 
 def test_reference_data_ships_and_samples_exist():

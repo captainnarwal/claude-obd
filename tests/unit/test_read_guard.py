@@ -2,34 +2,18 @@
 
 import json
 import os
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "scripts" / "hooks" / "read-guard.sh"
-
-
-def _bash():
-    if sys.platform == "win32":
-        for c in (r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files (x86)\Git\bin\bash.exe"):
-            if os.path.exists(c):
-                return c
-        return None
-    return shutil.which("bash")
-
-
-BASH = _bash()
-pytestmark = pytest.mark.skipif(BASH is None, reason="no bash available")
+SCRIPT = ROOT / "scripts" / "hooks" / "read_guard.py"
 
 
 def _run(path, mb_limit="1"):
     payload = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Read", "tool_input": {"file_path": str(path)}})
     env = {**os.environ, "OBD_READ_GUARD_MB": mb_limit, "CLAUDE_PLUGIN_ROOT": "/plugin"}
-    r = subprocess.run([BASH, str(SCRIPT)], input=payload, capture_output=True, text=True, env=env, timeout=30)
+    r = subprocess.run([sys.executable, str(SCRIPT)], input=payload, capture_output=True, text=True, env=env, timeout=30)
     return r.returncode, r.stdout.strip()
 
 
@@ -50,13 +34,14 @@ def test_small_files_other_types_and_missing_files_pass_silently(tmp_path):
     other.write_bytes(b"x = 1\n" * 500_000)
     for p in (small, other, tmp_path / "missing.csv"):
         assert _run(p) == (0, "")
-    assert subprocess.run([BASH, str(SCRIPT)], input="not json", capture_output=True, text=True).returncode == 0
+    assert subprocess.run([sys.executable, str(SCRIPT)], input="not json", capture_output=True, text=True).returncode == 0
 
 
 def test_hook_manifest_is_valid_and_script_is_lf():
     cfg = json.loads((ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
     entry = cfg["hooks"]["PreToolUse"][0]
-    assert entry["matcher"] == "Read" and "read-guard.sh" in entry["hooks"][0]["command"]
-    assert "CLAUDE_PLUGIN_ROOT" in entry["hooks"][0]["command"]
-    b = SCRIPT.read_bytes()
-    assert b.startswith(b"#!/usr/bin/env bash") and b"\r\n" not in b
+    cmd = entry["hooks"][0]["command"]
+    # shell-form hooks run under Git Bash on Windows (PowerShell 5.1 has no `||`), so call the sh wrapper, which picks python3/python/py
+    assert entry["matcher"] == "Read" and "read-guard.sh" in cmd and "CLAUDE_PLUGIN_ROOT" in cmd
+    assert "||" not in cmd and "&&" not in cmd
+    assert b"\r\n" not in SCRIPT.read_bytes()

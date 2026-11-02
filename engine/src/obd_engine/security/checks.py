@@ -59,8 +59,8 @@ def check_xlsx_zip(path: Path) -> None:
 
 
 def inside(child: Path, parent: Path) -> bool:
-    try:
-        child.resolve().relative_to(parent.resolve())
+    try:  # normcase: Windows paths compare case-insensitively (no-op elsewhere)
+        Path(os.path.normcase(child.resolve())).relative_to(Path(os.path.normcase(parent.resolve())))
         return True
     except ValueError:
         return False

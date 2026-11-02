@@ -1,38 +1,27 @@
-#!/usr/bin/env bash
-# Launcher for the claude-obd engine. Skills call: "${CLAUDE_PLUGIN_ROOT}/scripts/obd" <command> [args] --json
-# Resolves the venv created by `/obd setup` in ${CLAUDE_PLUGIN_DATA}; never touches PATH or global packages.
-set -u
-MODE=cli
-if [ "${1:-}" = "mcp" ]; then MODE=mcp; shift; fi   # `obd mcp [--workspace DIR]` runs the MCP server (stdout is the protocol)
-SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SELF_DIR/.." && pwd)}"
-DATA="${CLAUDE_PLUGIN_DATA:-$ROOT/.obd-plugin-data}"
-
-setup_required() {
-  # $1 = reason. One JSON envelope on stdout (stderr in MCP mode), exit code 4 (environment error).
-  if [ "$MODE" = mcp ]; then echo "obd-analyst MCP server: engine not set up ($1). Run /obd setup in Claude Code, or scripts/setup/setup.sh." >&2; exit 4; fi
-  printf '{"status":"error","summary":"The engine is not set up. Run /obd setup.","error":{"code":"SETUP_REQUIRED","message":"%s","hint":"Run /obd setup (takes 1-3 minutes, needs internet once)."}}\n' "$1"
-  exit 4
-}
-
-if [ -n "${OBD_PYTHON:-}" ]; then
-  PY="$OBD_PYTHON"                      # developer / test override
-else
-  if   [ -x "$DATA/venv/Scripts/python.exe" ]; then PY="$DATA/venv/Scripts/python.exe"
-  elif [ -x "$DATA/venv/bin/python" ];        then PY="$DATA/venv/bin/python"
-  else setup_required "No engine environment found."; fi
-
-  PLUGIN_VERSION="$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$ROOT/.claude-plugin/plugin.json" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
-  SETUP_VERSION="$(grep -o '"engine_version"[[:space:]]*:[[:space:]]*"[^"]*"' "$DATA/setup.json" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
-  if [ -z "$SETUP_VERSION" ]; then setup_required "setup.json missing."; fi
-  if [ -n "$PLUGIN_VERSION" ] && [ "$PLUGIN_VERSION" != "$SETUP_VERSION" ]; then
-    setup_required "Engine $SETUP_VERSION does not match plugin $PLUGIN_VERSION."
+#!/bin/sh
+# Thin POSIX wrapper; the logic lives in obd.py (stdlib only). Uses any Python 3.8+, else uv (which fetches its own Python).
+D="$(cd "$(dirname "$0")" && pwd)"
+for p in python3 python py; do
+  # the probe skips the Windows Store "python3" stub, which exists on PATH but is not a Python
+  if command -v "$p" >/dev/null 2>&1 && "$p" -c 'import sys; sys.exit(sys.version_info < (3, 8))' >/dev/null 2>&1; then
+    exec "$p" "$D/obd.py" "$@"
   fi
+done
+find_uv() {
+  U="$(command -v uv 2>/dev/null)"
+  for c in "$HOME/.local/bin/uv" "$HOME/.local/bin/uv.exe"; do [ -z "$U" ] && [ -x "$c" ] && U="$c"; done
+}
+find_uv
+if [ -z "$U" ] && [ "$1" = setup ]; then
+  case " $* " in *" --install-uv "*)   # no Python to run obd.py yet, so the wrapper installs uv itself
+    case "$(uname -s)" in
+      MINGW*|MSYS*|CYGWIN*) powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex" >&2 ;;
+      *) curl -LsSf https://astral.sh/uv/install.sh | sh >&2 ;;
+    esac
+    find_uv ;;
+  esac
 fi
-
-export OBD_REFERENCE_DIR="${OBD_REFERENCE_DIR:-$ROOT/reference}"
-export OBD_SAMPLE="${OBD_SAMPLE:-$ROOT/samples/sample-drive.csv}"
-export PYTHONIOENCODING=utf-8
-export PYTHONUTF8=1
-if [ "$MODE" = mcp ]; then exec "$PY" -m obd_engine.mcp "$@"; fi
-exec "$PY" -m obd_engine "$@"
+[ -n "$U" ] && exec "$U" run --no-project --python 3.12 "$D/obd.py" "$@"
+CODE=SETUP_REQUIRED; [ "$1" = setup ] && CODE=NEEDS_UV
+echo '{"status":"error","summary":"The engine is not set up. Run /obd setup.","error":{"code":"'$CODE'","message":"Neither Python 3 nor uv was found.","hint":"Run /obd setup; it installs uv (from astral.sh) after asking you."}}'
+exit 4

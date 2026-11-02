@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "obd": {
+      "command": "uv",
+      "args": [
+        "run", "--frozen", "--no-dev", "--no-editable", "--python", "3.12",
+        "--project", "${CLAUDE_PLUGIN_ROOT}/engine",
+        "obd-mcp"
+      ],
+      "env": {
+        "UV_PROJECT_ENVIRONMENT": "${CLAUDE_PLUGIN_DATA}/venv",
+        "OBD_REFERENCE_DIR": "${CLAUDE_PLUGIN_ROOT}/reference",
+        "OBD_SAMPLE": "${CLAUDE_PLUGIN_ROOT}/samples/sample-drive.csv",
+        "PYTHONUTF8": "1"
+      }
+    }
+  }
+}

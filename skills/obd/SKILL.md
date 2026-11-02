@@ -22,9 +22,9 @@ With no argument, show this list in one short block and run `scan` on the curren
 
 ### `/obd setup`
 1. Run `"${CLAUDE_PLUGIN_ROOT}/scripts/setup/setup.sh"` (takes 1-3 minutes; needs internet once).
-2. If the result has error code `NEEDS_UV`, explain that `uv` (a Python environment manager from astral.sh) is needed and nothing is installed globally; **ask the user for permission**, then run the same script with `--install-uv`.
+2. If the result has error code `NEEDS_UV`, explain that `uv` (a Python environment manager from astral.sh) is needed; it installs for this user only, no admin rights. **Ask the user for permission**, then run the same script with `--install-uv`.
 3. On `SETUP_FAILED`, relay the `hint` (usually network/proxy) and offer to retry.
-4. On success, print the `summary` (it includes the next step).
+4. On success, print the `summary` (it includes the next step) and tell the user to run `/mcp` and reconnect `obd` (or restart the session) so the bundled MCP tools pick up the new environment.
 
 ### `/obd doctor`
 Run `"${CLAUDE_PLUGIN_ROOT}/scripts/setup/doctor.sh"`. List each failed check with its `fix`. If everything is ok, say so in one line.
@@ -50,6 +50,3 @@ Ask the user to confirm: this deletes processed data in `.obd/` (originals and `
 ## Questions beyond the subcommands
 - Symptoms ("rough idle", "losing power", "check engine light") with a log: follow the `engine-diagnostics` skill.
 - "What does LTFT / PID 0C / P0171 mean?": follow the `obd-parameter-interpretation` skill (`lookup`).
-
-## Not in this version
-The MCP server for Claude Desktop and other apps is planned for a later release. If asked, say so and offer what is available (statistics, anomalies, correlations, charts, PDF).

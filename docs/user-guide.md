@@ -10,7 +10,7 @@ Inside Claude Code:
 /obd setup
 ```
 
-`/obd setup` creates an isolated Python environment in the plugin's data folder, installs the engine from a locked dependency set, and runs a self-test on a bundled sample log. If `uv` is not installed, Claude explains what it is and asks before installing it. With no `uv` but Python 3.11+, setup falls back to `venv` + `pip` (dependencies are then not hash-pinned).
+`/obd setup` creates an isolated Python environment in the plugin's data folder, installs the engine from a locked dependency set, and runs a self-test on a bundled sample log. If `uv` is not installed, Claude explains what it is and asks before installing it. `uv` is required: it also fetches Python 3.12 itself, so no system Python is needed.
 
 `/obd doctor` checks uv, the environment, engine/plugin version agreement, the self-test and the `.obd/` workspace in the current folder, and prints a fix for anything that fails. After a plugin update, `doctor` (or any command returning `SETUP_REQUIRED`) tells you to re-run `/obd setup`.
 
@@ -63,18 +63,18 @@ CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, u
 | Columns missing from the report | they await confirmation - answer Claude's questions or `map` them |
 | Results look stale after editing the file | re-ingest with `--force`; the engine warns when the hash changed |
 
-## Using the engine from Claude Desktop or another MCP client
-The engine also runs as an MCP server (stdio), exposing every command as a tool (`obd_scan`, `obd_ingest`, `obd_analyze`, ...) with the same inputs and the same JSON results. Claude Code does not need it (the skills already call the engine); it is for other MCP clients. After `/obd setup`, point the client at the launcher and a working folder:
+## Using the engine from Claude Code (MCP), Claude Desktop or another MCP client
+The engine also runs as an MCP server (stdio), exposing every command as a tool (`obd_scan`, `obd_ingest`, `obd_analyze`, ...) with the same inputs and the same JSON results. In Claude Code the plugin declares it for you (`.mcp.json`; needs `uv` on PATH, same on Linux, macOS and Windows). For other MCP clients use the same command with a working folder:
 
 ```json
 {
   "mcpServers": {
     "obd": {
-      "command": "bash",
-      "args": ["<plugin folder>/scripts/obd", "mcp", "--workspace", "<folder with your logs>"],
-      "env": { "CLAUDE_PLUGIN_DATA": "<plugin data folder from setup>" }
+      "command": "uv",
+      "args": ["run", "--frozen", "--no-dev", "--no-editable", "--project", "<plugin folder>/engine", "obd-mcp", "--workspace", "<folder with your logs>"],
+      "env": { "UV_PROJECT_ENVIRONMENT": "<plugin data folder>/venv" }
     }
   }
 }
 ```
-On Windows put this in `%APPDATA%\Claude\claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`); `bash` is Git Bash. The server reads files only from the workspace (plus any `--allow-dir <folder>` you add), writes `.obd/` and `obd-reports/` there, and never makes network calls. To try it in Claude Code: `claude mcp add obd -- bash <plugin folder>/scripts/obd mcp --workspace <folder>`.
+Claude Desktop config lives at `%APPDATA%\Claude\claude_desktop_config.json` (Windows), `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `~/.config/Claude/claude_desktop_config.json` (Linux). The server reads files only from the workspace (plus any `--allow-dir <folder>` you add), writes `.obd/` and `obd-reports/` there, and never makes network calls.

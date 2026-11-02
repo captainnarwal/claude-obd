@@ -12,7 +12,7 @@ Inside Claude Code:
 /obd setup
 ```
 
-`/obd setup` builds an isolated Python environment in the plugin's data folder (about 1–3 minutes, internet needed once) and runs a self-test on a bundled sample log. Nothing is installed globally and your PATH is untouched. `/obd doctor` re-checks the environment any time.
+Works the same on Windows, macOS and Linux, in Claude Code and the Claude Desktop Code tab. `/obd setup` needs [`uv`](https://docs.astral.sh/uv/) (one small binary, no admin rights, no Python required): if it is missing, Claude asks before installing it for your user. It then builds an isolated Python 3.12 environment in the plugin's data folder (about 1–3 minutes, internet needed once) and runs a self-test on a bundled sample log. Run `/mcp` afterwards and reconnect `obd` so the bundled MCP tools start. `/obd doctor` re-checks the environment any time.
 
 > The Claude plugin name is `obd-analyst` because third-party plugin names starting with `claude-` are reserved; the repository keeps its name.
 
@@ -39,7 +39,7 @@ Your folder ends up with `obd-reports/` (charts, PDFs) and a hidden `.obd/` work
 Each engine call is a Bash command, so Claude Code asks before the first one. To approve only the launcher and setup scripts, add this to `.claude/settings.json` (project) or `~/.claude/settings.json` (user):
 
 ```json
-{ "permissions": { "allow": ["Bash(*/scripts/obd:*)", "Bash(*/scripts/setup/setup.sh:*)", "Bash(*/scripts/setup/doctor.sh:*)"] } }
+{ "permissions": { "allow": ["Bash(*/scripts/obd:*)", "Bash(*/scripts/setup/setup.sh:*)", "Bash(*/scripts/setup/doctor.sh:*)", "Bash(python */scripts/obd.py:*)"] } }
 ```
 
 (The skills do not use the `allowed-tools` frontmatter: Claude Code 2.1.316 failed to load plugin skills that carry it.)
@@ -57,7 +57,7 @@ Each engine call is a Bash command, so Claude Code asks before the first one. To
 - **Excel & compare:** `report --format xlsx|both` writes an Excel workbook from the same report model (formula-injection safe); `compare` gives condition-matched differences between runs with 95% intervals and comparability warnings.
 - **Read guard:** a plugin hook nudges Claude to use the engine instead of reading big telemetry files directly.
 
-- **MCP server:** `scripts/obd mcp` exposes every command as a tool for Claude Desktop and other MCP clients (opt-in; see the user guide and `docs/adr/0001-mcp-is-opt-in.md`).
+- **MCP server:** declared in `.mcp.json` (runs via `uv run`, same on Linux, macOS and Windows) and exposes every command as a tool; see the user guide and `docs/adr/0001-mcp-is-opt-in.md`.
 
 Not yet: ECU-logger formats, ML anomaly detection (see the roadmap in the design doc).
 

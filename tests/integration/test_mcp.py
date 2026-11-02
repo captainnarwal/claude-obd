@@ -106,3 +106,36 @@ def test_stdio_round_trip_with_a_real_client(tmp_path, logs, monkeypatch):
     monkeypatch.setenv("OBD_WORKSPACE", str(tmp_path))
     env, _ = execute(["analyze", ana["evidence"][0]["dataset_id"], "--json"])
     assert [m["module"] for m in env.data["modules"]] == [m["module"] for m in ana["data"]["modules"]]
+
+
+def test_stdio_through_the_cross_platform_launcher(tmp_path, monkeypatch):
+    """The launcher other MCP clients use (python scripts/obd.py mcp), from a clean env (no bash). The plugin itself uses .mcp.json (uv run)."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.setenv("OBD_PYTHON", sys.executable)  # the test interpreter has the engine installed
+
+    async def go():
+        params = StdioServerParameters(command=sys.executable, args=[str(root / "scripts" / "obd.py"), "mcp", "--workspace", str(tmp_path)],
+                                       env={**__import__("os").environ})
+        with anyio.fail_after(120):
+            async with stdio_client(params) as (r, w):
+                async with ClientSession(r, w) as session:
+                    await session.initialize()
+                    names = {t.name for t in (await session.list_tools()).tools}
+                    assert {"obd_ingest", "obd_analyze", "obd_lookup"} <= names
+                    res = await session.call_tool("obd_lookup", {"kind": "dtc", "id": "P0171"})
+                    assert _env(res)["data"]["code"] == "P0171"
+
+    anyio.run(go)
+
+
+def test_launcher_reports_setup_required_on_stderr_in_mcp_mode(tmp_path):
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    env = {k: v for k, v in __import__("os").environ.items() if k != "OBD_PYTHON"}
+    env["CLAUDE_PLUGIN_DATA"] = str(tmp_path / "empty")
+    r = subprocess.run([sys.executable, str(root / "scripts" / "obd.py"), "mcp"], capture_output=True, text=True, env=env, timeout=30)
+    assert r.returncode == 4 and r.stdout == "" and "not set up" in r.stderr   # stdout is the protocol channel: stay silent

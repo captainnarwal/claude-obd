@@ -5,7 +5,7 @@
       {
         "matcher": "Read",
         "hooks": [
-          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/hooks/read-guard.sh", "timeout": 10 }
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/read-guard.sh\"", "timeout": 10 }
         ]
       }
     ]

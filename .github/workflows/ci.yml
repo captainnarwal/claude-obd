@@ -43,21 +43,26 @@ jobs:
         env:
           CLAUDE_PLUGIN_ROOT: ${{ github.workspace }}
           CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/obd-data
-        run: scripts/setup/setup.sh
+        run: python scripts/obd.py setup
       - name: /obd doctor
         env:
           CLAUDE_PLUGIN_ROOT: ${{ github.workspace }}
           CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/obd-data
         run: |
-          out="$(scripts/setup/doctor.sh)"; echo "$out"
-          echo "$out" | grep -q '"status":"ok"'
+          out="$(python scripts/obd.py doctor)"; echo "$out"
+          echo "$out" | grep -q '"status": "ok"'
       - name: Launcher reports SETUP_REQUIRED without an environment
         env:
           CLAUDE_PLUGIN_ROOT: ${{ github.workspace }}
           CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/does-not-exist
         run: |
-          set +e; out="$(scripts/obd list --json)"; code=$?
+          set +e; out="$(python scripts/obd.py list --json)"; code=$?
           echo "$out"; test "$code" = 4 && echo "$out" | grep -q SETUP_REQUIRED
+      - name: Bundled MCP server starts via .mcp.json (uv run) and lists tools
+        env:
+          CLAUDE_PLUGIN_ROOT: ${{ github.workspace }}
+          CLAUDE_PLUGIN_DATA: ${{ runner.temp }}/obd-data
+        run: uv run --frozen --no-dev --project engine python scripts/mcp_smoke.py
 
   audit:
     runs-on: ubuntu-latest
