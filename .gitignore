@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# claude-obd
+.obd/
+obd-reports/
+.obd-plugin-data/
+*.utf8.tmp

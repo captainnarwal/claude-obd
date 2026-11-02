@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Launcher for the claude-obd engine. Skills call: "${CLAUDE_PLUGIN_ROOT}/scripts/obd" <command> [args] --json
+# Resolves the venv created by `/obd setup` in ${CLAUDE_PLUGIN_DATA}; never touches PATH or global packages.
+set -u
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SELF_DIR/.." && pwd)}"
+DATA="${CLAUDE_PLUGIN_DATA:-$ROOT/.obd-plugin-data}"
+
+setup_required() {
+  # $1 = reason. One JSON envelope on stdout, exit code 4 (environment error).
+  printf '{"status":"error","summary":"The engine is not set up. Run /obd setup.","error":{"code":"SETUP_REQUIRED","message":"%s","hint":"Run /obd setup (takes 1-3 minutes, needs internet once)."}}\n' "$1"
+  exit 4
+}
+
+if [ -n "${OBD_PYTHON:-}" ]; then
+  PY="$OBD_PYTHON"                      # developer / test override
+else
+  if   [ -x "$DATA/venv/Scripts/python.exe" ]; then PY="$DATA/venv/Scripts/python.exe"
+  elif [ -x "$DATA/venv/bin/python" ];        then PY="$DATA/venv/bin/python"
+  else setup_required "No engine environment found."; fi
+
+  PLUGIN_VERSION="$(grep -o '"version"[[:space:]]*:[[:space:]]*"[^"]*"' "$ROOT/.claude-plugin/plugin.json" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
+  SETUP_VERSION="$(grep -o '"engine_version"[[:space:]]*:[[:space:]]*"[^"]*"' "$DATA/setup.json" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')"
+  if [ -z "$SETUP_VERSION" ]; then setup_required "setup.json missing."; fi
+  if [ -n "$PLUGIN_VERSION" ] && [ "$PLUGIN_VERSION" != "$SETUP_VERSION" ]; then
+    setup_required "Engine $SETUP_VERSION does not match plugin $PLUGIN_VERSION."
+  fi
+fi
+
+export OBD_REFERENCE_DIR="${OBD_REFERENCE_DIR:-$ROOT/reference}"
+export OBD_SAMPLE="${OBD_SAMPLE:-$ROOT/samples/sample-drive.csv}"
+export PYTHONIOENCODING=utf-8
+export PYTHONUTF8=1
+exec "$PY" -m obd_engine "$@"
