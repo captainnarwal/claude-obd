@@ -18,7 +18,18 @@ from pathlib import Path
 
 SELF = Path(__file__).resolve()
 ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or SELF.parent.parent)
-DATA = Path(os.environ.get("CLAUDE_PLUGIN_DATA") or ROOT / ".obd-plugin-data")
+
+
+def _default_data() -> Path:
+    """Skill Bash calls don't get CLAUDE_PLUGIN_DATA, but .mcp.json does. Mirror Claude Code's layout
+    (plugins/cache/<marketplace>/<plugin>/<version> -> plugins/data/<plugin>-<marketplace>) so both use one venv."""
+    parts = ROOT.parts
+    if len(parts) > 4 and parts[-4] == "cache" and parts[-5] == "plugins":
+        return Path(*parts[:-4]) / "data" / f"{parts[-2]}-{parts[-3]}"
+    return ROOT / ".obd-plugin-data"
+
+
+DATA = Path(os.environ.get("CLAUDE_PLUGIN_DATA") or _default_data())
 VENV = DATA / "venv"
 IS_WIN = sys.platform == "win32"
 

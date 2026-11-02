@@ -22,7 +22,7 @@ jobs:
         run: cd engine && uv sync
       - name: Lint
         run: cd engine && uv run ruff check src ../tests ../tools --select E9,F
-      - name: Tests (includes repo hygiene: versions match, skills exist)
+      - name: "Tests (includes repo hygiene: versions match, skills exist)"
         run: cd engine && uv run pytest ../tests -q
 
   install:
