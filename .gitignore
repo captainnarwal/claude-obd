@@ -224,3 +224,6 @@ __marimo__/
 obd-reports/
 .obd-plugin-data/
 *.utf8.tmp
+
+# personal log exports (may contain GPS tracks); only samples/ is tracked
+/*.csv

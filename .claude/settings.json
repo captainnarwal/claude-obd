@@ -1,0 +1,5 @@
+{
+  "enabledPlugins": {
+    "obd-analyst@captainnarwal-obd-tools": true
+  }
+}

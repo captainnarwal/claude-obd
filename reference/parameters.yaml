@@ -53,9 +53,11 @@ parameters:
   - {id: warmups_since_clear, name: Warm-ups Since Codes Cleared, category: engine, unit: "", pid: "01 30", range: [0, 255], kind: counter, aliases: [warmups since codes cleared, warm ups since codes cleared]}
   - {id: gear, name: Current Gear, category: drivetrain, unit: "", range: [-1, 12], kind: discrete, aliases: [gear, current gear, selected gear, trans gear]}
   - {id: tcc_slip, name: Torque Converter Slip, category: drivetrain, unit: rpm, range: [-5000, 5000], aliases: [tcc slip, converter slip, torque converter slip]}
-  - {id: gps_latitude, name: GPS Latitude, category: vehicle, unit: "°", range: [-90, 90], aliases: [latitude, gps latitude, lat]}
-  - {id: gps_longitude, name: GPS Longitude, category: vehicle, unit: "°", range: [-180, 180], aliases: [longitude, gps longitude, lon, lng, long]}
-  - {id: gps_altitude, name: GPS Altitude, category: vehicle, unit: m, range: [-500, 9000], aliases: [altitude, gps altitude, elevation]}
+  - {id: gps_latitude, name: GPS Latitude, category: vehicle, unit: "°", range: [-90, 90], aliases: [latitude, gps latitude, latitude gps, lat]}
+  - {id: gps_longitude, name: GPS Longitude, category: vehicle, unit: "°", range: [-180, 180], aliases: [longitude, gps longitude, longitude gps, longtitude, lon, lng, long]}
+  - {id: gps_altitude, name: GPS Altitude, category: vehicle, unit: m, range: [-500, 9000], aliases: [altitude, gps altitude, altitude gps, elevation]}
+  - {id: gps_speed, name: GPS Speed, category: vehicle, unit: "km/h", range: [0, 400], aliases: [gps speed, speed gps, gps velocity]}
+  - {id: gps_speed_avg, name: GPS Average Speed, category: vehicle, unit: "km/h", range: [0, 400], aliases: [average speed gps, gps average speed, avg speed gps, average speed]}
   - {id: accel_x, name: Acceleration X, category: vehicle, unit: "g", range: [-10, 10], aliases: [accel x, acceleration x, g force x, x-axis]}
   - {id: accel_y, name: Acceleration Y, category: vehicle, unit: "g", range: [-10, 10], aliases: [accel y, acceleration y, g force y, y-axis]}
   - {id: accel_z, name: Acceleration Z, category: vehicle, unit: "g", range: [-10, 10], aliases: [accel z, acceleration z, g force z, z-axis]}

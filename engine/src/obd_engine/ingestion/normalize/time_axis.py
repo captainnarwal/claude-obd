@@ -44,7 +44,11 @@ def _best_datetime_format(s: pl.Series, preferred: list[str]) -> tuple[str, floa
         return None
     best: tuple[str, float] | None = None
     for fmt in [*preferred, *[f for f in DT_FORMATS if f not in preferred]]:
-        ok = s.str.to_datetime(fmt, strict=False).is_not_null().sum() / s.len()
+        try:
+            parsed = s.str.to_time(fmt, strict=False) if fmt in TIME_OF_DAY else s.str.to_datetime(fmt, strict=False)
+            ok = parsed.is_not_null().sum() / s.len()
+        except Exception:  # a format polars cannot compile is simply not a candidate
+            continue
         if ok >= 0.9 and (best is None or ok > best[1]):
             best = (fmt, ok)
             if ok > 0.99:
@@ -94,13 +98,16 @@ def build_time(df: pl.DataFrame, spec: TimeSpec, decimal_comma: bool) -> tuple[p
     if spec.kind == "index":
         return df["__row_id"].cast(pl.Float64), None
     s = df[spec.column]
-    if spec.kind in ("datetime", "time_of_day"):
+    if spec.kind == "time_of_day":
+        tm = s.str.strip_chars().str.to_time(spec.fmt, strict=False)
+        return tm.cast(pl.Int64).cast(pl.Float64) / 1e9, None  # seconds since midnight; a rollover shows up as a reset
+    if spec.kind == "datetime":
         if s.dtype == pl.String:
             dt = s.str.strip_chars().str.to_datetime(spec.fmt, strict=False)
         else:
             dt = s.cast(pl.Datetime("us"))
         secs = dt.dt.epoch("us").cast(pl.Float64) / 1e6
-        return secs, (dt if spec.kind == "datetime" else None)
+        return secs, dt
     num = _as_float(s, decimal_comma)
     if spec.kind == "numeric_ms":
         return num / 1000.0, None

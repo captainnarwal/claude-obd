@@ -130,3 +130,27 @@ def test_delete_requires_confirmation(run, copy_log, ws):
     assert run("list")[1]["data"]["datasets"] == []
     code, e = run("clean", "--yes")
     assert not (ws / ".obd").exists()
+
+
+def test_time_of_day_gps_only_log(run, ws):
+    """Regression: a date-less time column (17:44:24.917) from a GPS-only app, with trailing comma and typo'd header."""
+    rows = ["time,Altitude (GPS) (m),Average speed (GPS) (km/h),Speed (GPS) (km/h),Latitude,Longtitude,"]
+    for i in range(30):
+        rows.append(f"17:44:{24 + i // 2:02d}.{(i % 2) * 500:03d},{-75.4 + i * 0.01},{i % 5},{i % 7},12.85{i},80.23{i},")
+    (ws / "gps.csv").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    code, env = run("ingest", "gps.csv")
+    assert code == 0, env
+    assert env["data"]["time_axis"] == "time_of_day" and env["data"]["segments"] == 1
+    names = {p["name"] for p in env["data"]["parameters"]}
+    assert {"gps_speed", "gps_speed_avg", "gps_latitude", "gps_longitude", "gps_altitude"} <= names
+    assert env["status"] == "ok"                                 # the "Longtitude" typo and "Altitude (GPS)" map confidently
+
+
+def test_unparseable_time_format_candidates_do_not_crash():
+    import polars as pl
+
+    from obd_engine.ingestion.normalize.time_axis import detect_time
+
+    df = pl.DataFrame({"__row_id": [1, 2, 3], "time": ["00:01.5", "00:02.5", "00:03.5"]})
+    spec = detect_time(df, ["time"], {}, {}, False)
+    assert spec.kind in ("index", "numeric_s", "datetime", "time_of_day")
