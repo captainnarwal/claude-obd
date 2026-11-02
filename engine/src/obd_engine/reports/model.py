@@ -11,6 +11,7 @@ from obd_engine.analysis.thresholds import family_for
 from obd_engine.reference.loader import load_dictionary
 from obd_engine.storage.catalog import Catalog
 
+SYSTEM_MODULES = ("fuel_system", "thermal", "ignition", "intake_boost", "engine_performance", "drivetrain")
 SEV_ORDER = {"warning": 0, "attention": 1, "info": 2}
 DISCLAIMER = ("This report is analytical assistance based solely on the supplied log. It is not a substitute for physical inspection; "
               "consult a qualified technician before acting on any finding, particularly for safety-critical systems.")
@@ -61,8 +62,7 @@ def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any
 
     limitations = [f"{mod}: not performed - {r.get('reason')}" for mod, r in results.items() if r.get("status") == "not_applicable"]
     limitations += [
-        "Fuel-system, thermal-system, ignition, intake/boost and drivetrain diagnostics, and ranked diagnostic hypotheses are not part of this version; "
-        "findings here are generic observations from the data.",
+        "Ranked diagnostic hypotheses are not part of this version; the system sections report measurements and condition-dependent behavior, not causes.",
         "Thresholds are generic sanity ranges, not specifications for your engine; findings that use them are capped at medium confidence.",
     ]
     low_conf = [m["original_name"] for m in maps if m["status"] == "needs_confirmation"]
@@ -85,6 +85,8 @@ def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any
                     "time": quality.get("metrics", {}).get("time", {}), "usable_for": usable, "notes": quality.get("notes", [])},
         "stats": stats.get("stats", {}), "by_condition": stats.get("by_condition", {}),
         "performance": [f for f in results.get("time_series", {}).get("findings", [])],
+        "systems": [{"module": m, "title": ok[m].get("title") or m, "summary": ok[m].get("summary"), "findings": ok[m].get("findings", []), "notes": ok[m].get("notes", [])}
+                    for m in SYSTEM_MODULES if m in ok],
         "time_series": results.get("time_series", {}).get("metrics", {}),
         "anomalies": results.get("anomalies", {}).get("metrics", {}).get("events", [])[:15],
         "anomaly_findings": results.get("anomalies", {}).get("findings", []),

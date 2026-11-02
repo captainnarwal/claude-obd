@@ -164,6 +164,20 @@ def render_pdf(model: dict[str, Any], out: Path) -> Path:
         for f in model["performance"]:
             s += _finding_block(f, ss)
 
+    # 7b system analysis (fuel, thermal, ignition, intake/boost, performance, drivetrain) - only modules the data supports
+    if model.get("systems"):
+        s.append(Paragraph("System analysis", ss["Heading1"]))
+        for sysmod in model["systems"]:
+            s.append(Paragraph(T(sysmod["title"]), ss["Heading2"]))
+            for f in sysmod["findings"]:
+                s += _finding_block(f, ss)
+            if not sysmod["findings"]:
+                s.append(Paragraph("No findings from this module.", ss["Small"]))
+            for n in sysmod["notes"]:
+                if not n.startswith("Conditions use"):
+                    s.append(Paragraph(T(n), ss["Small"]))
+        s.append(Paragraph("Condition labels use generic thresholds (idle below 1200 rpm and stopped, wide-open throttle at 90% throttle/load or more, warm at 80 C or more).", ss["Cap"]))
+
     # 8 anomalies
     if model["anomalies"]:
         s.append(Paragraph("Anomalies", ss["Heading1"]))

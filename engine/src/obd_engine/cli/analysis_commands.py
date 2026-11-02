@@ -137,6 +137,8 @@ def _findings_view(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         fs = sorted(r.get("findings", []), key=lambda f: {"warning": 0, "attention": 1, "info": 2}[f["severity"]])
         shown = [{
             "title": clean_text(f["title"], 200), "kind": f["kind"], "severity": f["severity"], "confidence": f["confidence"]["level"],
+            **({"confidence_reason": clean_text(f["confidence"]["reason"], 160)} if f["confidence"].get("reason") else {}),
+            **({"alternatives": [clean_text(a, 120) for a in f["alternatives"][:2]]} if f.get("alternatives") else {}),
             "evidence": f["evidence"][:2], **({"threshold": f["threshold"]} if f.get("threshold") else {}),
             **({"next_steps": f["next_steps"][:2]} if f.get("next_steps") else {}),
         } for f in fs[:MAX_FINDINGS_SHOWN]]

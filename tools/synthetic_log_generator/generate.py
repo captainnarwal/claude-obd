@@ -13,7 +13,9 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 
-FAULTS = {"lean", "overheat", "dropout", "reset", "sentinel", "spike"}
+FAULTS = {"lean", "overheat", "dropout", "reset", "sentinel", "spike",
+          # "perf" style only: knock events, misfires, boost leak, bank imbalance, lean at WOT; also slow warm-up and idle heat soak
+          "knock", "misfire", "boost_leak", "bank_imbalance", "lean_wot", "slow_warmup", "heatsoak"}
 CYCLE_S = 600.0
 # (time in cycle, speed km/h)
 _SPEED_KEYS = [(0, 0), (30, 0), (90, 50), (200, 58), (215, 110), (330, 105), (380, 0), (420, 0), (480, 60), (560, 55), (600, 0)]
@@ -37,11 +39,14 @@ def _cycle(t: np.ndarray, rng: np.random.Generator, faults: set[str], t_total: f
     load = np.clip(18 + throttle * 0.7 + rng.normal(0, 1, t.size), 0, 100)
     mapk = np.clip(32 + throttle * 0.68 + rng.normal(0, 1, t.size), 15, 250)
     maf = np.clip(rpm / 60.0 * load / 100.0 * 0.9 + rng.normal(0, 0.2, t.size), 0.5, None)
-    ect = 20 + 72 * (1 - np.exp(-t / 280.0)) + rng.normal(0, 0.15, t.size)
+    tau = 700.0 if "slow_warmup" in faults else 280.0
+    ect = 20 + 72 * (1 - np.exp(-t / tau)) + rng.normal(0, 0.15, t.size)
     if "overheat" in faults:
         late = t > 0.6 * t_total
         ect = np.where(late, ect + (t - 0.6 * t_total) * 0.12, ect)
     iat = 24 + 9 * (1 - np.exp(-t / 500.0)) + rng.normal(0, 0.2, t.size)
+    if "heatsoak" in faults:
+        iat = iat + np.where((speed < 2) & (t > 150), 12.0, 0.0)
     timing = np.clip(10 + rpm / 400 - load / 9 + rng.normal(0, 0.4, t.size), -5, 45)
     stft = rng.normal(0, 1.6, t.size)
     ltft = 1.0 + rng.normal(0, 0.25, t.size)
@@ -53,6 +58,42 @@ def _cycle(t: np.ndarray, rng: np.random.Generator, faults: set[str], t_total: f
     volt = 14.1 + rng.normal(0, 0.05, t.size)
     return dict(rpm=rpm, speed=speed, throttle=throttle, load=load, map=mapk, maf=maf, ect=ect, iat=iat,
                 timing=timing, stft=stft, ltft=ltft, volt=volt)
+
+
+def _lag(target: np.ndarray, dt: float, tau: float) -> np.ndarray:
+    out = np.empty_like(target)
+    y, a = 0.0, dt / (tau + dt)
+    for i, x in enumerate(target):
+        y += a * (x - y)
+        out[i] = y
+    return out
+
+
+def _perf(t: np.ndarray, v: dict[str, np.ndarray], faults: set[str], rng: np.random.Generator, hz: float) -> dict[str, np.ndarray]:
+    """Extra channels for the dense "perf" style: turbo boost, lambda, bank 2 trims, knock and misfire counters."""
+    n = t.size
+    c = np.mod(t, CYCLE_S)
+    wot = (c >= _WOT[0]) & (c <= _WOT[1])
+    idle = v["speed"] < 2
+    thr, rpm = v["throttle"], v["rpm"]
+    target = 130.0 * np.clip((thr - 30) / 66, 0, 1) * (rpm > 2200)
+    boost = _lag(target, 1.0 / hz, 1.2)
+    if "boost_leak" in faults:
+        boost = np.where(target > 0, boost * 0.55, boost)
+    boost = boost + rng.normal(0, 0.5, n)
+    mapk = np.clip(30 + 0.7 * np.minimum(thr, 70), 20, 101) + boost + rng.normal(0, 0.5, n)
+    lam = 1.0 + rng.normal(0, 0.008, n)
+    lam = np.where(wot, (1.04 if "lean_wot" in faults else 0.86) + rng.normal(0, 0.008, n), lam)
+    if "lean" in faults:
+        lam = np.where(idle, 1.08 + rng.normal(0, 0.008, n), lam)
+    knock_zone = wot & (c >= 205) & (c <= 209)
+    kr = np.where(knock_zone, -4.0 + rng.normal(0, 0.2, n), 0.0) if "knock" in faults else np.zeros(n)
+    kcount = np.cumsum((kr < -1.0) & (np.roll(kr, 1) >= -1.0))
+    mis = (wot & (rng.random(n) < 0.03)) if "misfire" in faults else np.zeros(n, dtype=bool)
+    ltft2 = v["ltft"] + (7.0 if "bank_imbalance" in faults else 0.0)
+    return dict(boost=boost, boost_target=target, map=mapk, lam=lam, kr=kr, kcount=kcount, mcount=np.cumsum(mis),
+                baro=101.3 + rng.normal(0, 0.1, n), stft2=v["stft"] + rng.normal(0, 0.5, n), ltft2=ltft2 + rng.normal(0, 0.2, n),
+                timing=v["timing"] + kr)
 
 
 def _apply_faults(v: dict[str, np.ndarray], t: np.ndarray, faults: set[str], rng: np.random.Generator, t_total: float):
@@ -84,6 +125,8 @@ def generate(path: str | Path, duration_s: float = 1200.0, hz: float = 2.5, styl
         hi = min(n_total, lo + chunk_rows)
         t = np.arange(lo, hi) / hz
         v = _cycle(t, rng, faults, duration_s)
+        if style == "perf":
+            v.update(_perf(t, v, faults, rng, hz))
         drop = _apply_faults(v, t, faults, rng, duration_s)
         df = _frame(t, v, drop, style, start, rng, faults, duration_s, lo)
         with open(path, "ab" if not first else "wb") as f:
@@ -125,6 +168,18 @@ def _frame(t, v, drop, style, start, rng, faults, t_total, offset) -> pl.DataFra
             "Fuel Trim Bank 1 Short Term(%)": sparse("stft", 1, 2), "Fuel Trim Bank 1 Long Term(%)": sparse("ltft", 1, 2),
             "Timing Advance(°)": sparse("timing", 1, 2), "Voltage (Control Module)(V)": sparse("volt", 2, 2),
         })
+    if style == "perf":
+        return pl.DataFrame({
+            "Time (s)": _fmt(t, 3), "Engine RPM": _fmt(v["rpm"], 0), "Vehicle Speed (km/h)": _fmt(v["speed"], 1),
+            "Throttle Position (%)": _fmt(v["throttle"], 1), "Engine Load (%)": _fmt(v["load"], 1),
+            "Coolant Temp (°C)": _fmt(v["ect"], 1), "Intake Air Temp (°C)": _fmt(v["iat"], 1),
+            "MAP (kPa)": _fmt(v["map"], 1), "Boost (kPa)": _fmt(v["boost"], 1), "Boost Target (kPa)": _fmt(v["boost_target"], 1),
+            "Barometric Pressure (kPa)": _fmt(v["baro"], 1), "MAF (g/s)": _fmt(v["maf"], 2),
+            "Short Term Fuel Trim Bank 1 (%)": _fmt(v["stft"], 1), "Long Term Fuel Trim Bank 1 (%)": _fmt(v["ltft"], 1),
+            "Short Term Fuel Trim Bank 2 (%)": _fmt(v["stft2"], 1), "Long Term Fuel Trim Bank 2 (%)": _fmt(v["ltft2"], 1),
+            "Lambda": _fmt(v["lam"], 3), "Timing Advance (°)": _fmt(v["timing"], 1), "Knock Retard (°)": _fmt(v["kr"], 1),
+            "Knock Count": _fmt(v["kcount"], 0), "Misfire Count": _fmt(v["mcount"], 0),
+        })
     # generic: dense, imperial units, unit-in-header
     tt = t.copy()
     if "reset" in faults:
@@ -144,14 +199,14 @@ def main() -> None:
     ap.add_argument("out")
     ap.add_argument("--duration", type=float, default=1200.0)
     ap.add_argument("--hz", type=float, default=2.5)
-    ap.add_argument("--style", choices=["torque", "generic"], default="torque")
+    ap.add_argument("--style", choices=["torque", "generic", "perf"], default="torque")
     ap.add_argument("--faults", default="")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--mb", type=float, help="approximate size; overrides --duration")
     a = ap.parse_args()
     dur = a.duration
     if a.mb:
-        bytes_per_row = 155 if a.style == "torque" else 110
+        bytes_per_row = {"torque": 155, "perf": 210}.get(a.style, 110)
         dur = a.mb * 1024 * 1024 / bytes_per_row / a.hz
     p = generate(a.out, dur, a.hz, a.style, set(filter(None, a.faults.split(","))), a.seed)
     print(f"{p} {p.stat().st_size / 1024**2:.1f} MB")

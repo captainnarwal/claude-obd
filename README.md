@@ -44,15 +44,15 @@ Each engine call is a Bash command, so Claude Code asks before the first one. To
 
 (The skills do not use the `allowed-tools` frontmatter: Claude Code 2.1.316 failed to load plugin skills that carry it.)
 
-## What it does (v0.1)
+## What it does
 
 - **Ingestion:** CSV/TSV/TXT and XLSX, Torque Pro adapter, long-format (one reading per row) logs, encoding/delimiter/decimal/preamble detection, 50–500 MB files via streaming Parquet.
-- **Mapping:** ~60 canonical parameters with a deterministic, explainable scorer. Ambiguous columns (`TEMP`, `MAP` without unit, fuel trims without a bank…) are never guessed; Claude asks you.
+- **Mapping:** ~65 canonical parameters (bank/sensor aware) with a deterministic, explainable scorer. Ambiguous columns (`TEMP`, `MAP` without unit, fuel trims without a bank…) are never guessed; Claude asks you.
 - **Normalization:** unit conversion to metric, sentinel and plausibility flags, gap/reset segmentation, no resampling.
-- **Analysis:** data quality, statistics (also by operating condition), time-series behavior, correlation, anomaly detection (robust rolling statistics). Findings are tagged observation / inference / hypothesis with evidence references.
+- **Analysis:** data quality, statistics (also by operating condition), time-series behavior, correlation, anomaly detection (robust rolling statistics), plus fuel-system, thermal, ignition/knock, intake/boost, performance and drivetrain modules that report behavior per operating condition. Vehicle profiles (`/obd vehicle`) select engine-family or your own thresholds. Findings are tagged observation / inference / hypothesis with evidence references.
 - **Output:** PNG charts and PDF reports containing only what the data supports.
 
-Not yet: fuel/thermal/ignition system diagnosis, DTC lookup, ranked hypotheses, comparisons, Excel export, MCP server for other Claude apps (see the roadmap in the design doc).
+Not yet: DTC lookup, ranked hypotheses, comparisons, Excel export, MCP server for other Claude apps (see the roadmap in the design doc).
 
 *Analytical assistance only — not a substitute for physical inspection by a qualified technician.*
 

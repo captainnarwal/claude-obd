@@ -1,4 +1,6 @@
 """Importing this module registers all analysis modules."""
 
 from obd_engine.analysis.generic import anomalies, correlation, statistics, time_series  # noqa: F401
-from obd_engine.analysis.modules import data_quality  # noqa: F401
+from obd_engine.analysis.modules import (  # noqa: F401
+    data_quality, drivetrain, engine_performance, fuel_system, ignition, intake_boost, thermal,
+)

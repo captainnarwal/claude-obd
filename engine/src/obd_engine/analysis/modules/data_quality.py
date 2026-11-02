@@ -8,6 +8,8 @@ from obd_engine.analysis.registry.base import Context, Module, evidence, finding
 
 USABLE_FOR = {
     "fuel trims": ["stft_b1", "ltft_b1"],
+    "mixture (lambda / AFR)": ["lambda"],
+    "knock / misfire": ["knock_retard"],
     "thermal behavior": ["ect"],
     "engine speed / load behavior": ["engine_speed", "engine_load", "throttle_position"],
     "intake / boost": ["map", "maf"],
@@ -18,7 +20,7 @@ USABLE_FOR = {
 
 class DataQuality(Module):
     id = "data_quality"
-    version = "1.0.1"
+    version = "1.0.2"
     title = "Data Quality"
 
     def applicability(self, ctx: Context):

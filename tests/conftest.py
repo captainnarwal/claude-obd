@@ -32,6 +32,9 @@ def logs(tmp_path_factory):
         "faulty": generate(d / "faulty.csv", 1200, 2.5, "torque", {"lean", "overheat", "spike", "dropout"}, seed=11),
         "generic": generate(d / "generic.csv", 600, 10, "generic", {"sentinel", "reset"}, seed=5),
         "generic_lean": generate(d / "generic_lean.csv", 900, 10, "generic", {"lean"}, seed=8),
+        "perf_clean": generate(d / "perf_clean.csv", 700, 5, "perf", set(), seed=31),
+        "perf_faulty": generate(d / "perf_faulty.csv", 700, 5, "perf", {"lean", "lean_wot", "knock", "misfire", "boost_leak", "bank_imbalance", "heatsoak"}, seed=32),
+        "perf_slow": generate(d / "perf_slow.csv", 1500, 2, "perf", {"slow_warmup", "overheat"}, seed=33),
     }
     return out
 
