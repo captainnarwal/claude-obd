@@ -20,9 +20,10 @@ Always: `"${CLAUDE_PLUGIN_ROOT}/scripts/obd" <command> ... --json`. One JSON env
 | `delete <dataset>` / `clean` | remove processed data (needs `--yes`) | `--all`, `--yes` |
 | `vehicle <add|set|show|list|assign|delete>` | vehicle/engine profile; selects threshold tier (vehicle > engine-family > generic) | `--nickname --make --model --year --vin`, engine: `--displacement --cylinders --aspiration na|turbo|supercharged --fuel --redline`, drivetrain: `--transmission --mass-kg`, `--limit "ect:>:112:°C:attention"`, `assign <vehicle> <dataset>`, `delete --yes` |
 | `session <add|list|assign>` | group datasets from one outing | `--label --vehicle --condition key=value`, `assign <session> <dataset>` |
+| `lookup <dtc|parameter|pid> <id>` | reference: code structure, parameter meaning and limits, PID formula (no dataset needed) | `--vehicle` (shows that vehicle's limit tier) |
 | `selftest` | pipeline check on the bundled sample | |
 
 ## Envelope fields
 `status` (ok / partial / needs_input / error), `summary`, `data`, `units`, `method`, `evidence` (dataset, parameter, time range, row spans, n), `caveats`, `needs_input` (questions to ask the user), `truncated`, `versions`, `error {code, message, hint}`.
 
-Common error codes: `FILE_NOT_FOUND`, `FILE_TOO_LARGE`, `UNSUPPORTED_FORMAT`, `MACRO_FILE_REJECTED`, `DATASET_NOT_FOUND`, `PARAMETER_NOT_AVAILABLE` (see `data.near_matches`), `COLUMN_NOT_FOUND`, `UNKNOWN_PARAMETER`, `CONFIRMATION_REQUIRED`, `VEHICLE_NOT_FOUND`, `SESSION_NOT_FOUND`, `SETUP_REQUIRED`.
+Common error codes: `FILE_NOT_FOUND`, `FILE_TOO_LARGE`, `UNSUPPORTED_FORMAT`, `MACRO_FILE_REJECTED`, `DATASET_NOT_FOUND`, `PARAMETER_NOT_AVAILABLE` (see `data.near_matches`), `COLUMN_NOT_FOUND`, `UNKNOWN_PARAMETER`, `CONFIRMATION_REQUIRED`, `INVALID_DTC`, `PID_NOT_FOUND`, `PARAMETER_NOT_FOUND`, `AMBIGUOUS_PARAMETER`, `VEHICLE_NOT_FOUND`, `SESSION_NOT_FOUND`, `SETUP_REQUIRED`.

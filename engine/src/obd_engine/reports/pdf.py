@@ -191,7 +191,26 @@ def render_pdf(model: dict[str, Any], out: Path) -> Path:
 
     # 9 diagnostic findings
     s.append(Paragraph("Diagnostic findings", ss["Heading1"]))
-    s.append(Paragraph("Ranked diagnostic hypotheses are not produced in this version. See observations above for measured facts.", ss["BodyText"]))
+    dg = model.get("diagnostics")
+    if dg and dg["ranked"]:
+        s.append(Paragraph(T(f"Pattern matches from {dg['rules_evaluated']} deterministic rules (rule base {dg['rules_version']}). These are ranked possibilities, not a diagnosis; "
+                             "relative support is not a probability, and the rules use generic thresholds."), ss["Small"]))
+        for item in dg["ranked"]:
+            f = next((x for x in dg["findings"] if x["title"].startswith(item["title"])), None)
+            if f:
+                s += _finding_block(f, ss)
+            rows = [["Possible explanation", "Relative support", "Evidence for / against"]]
+            for h in item["ranked"]:
+                rows.append([h["cause"], f"{h['score']:.2f}", "; ".join([*h["favoring"], *[f"against: {a}" for a in h["against"]]]) or "prior only"])
+            s += [_table(rows, [W * .5, W * .14, W * .36]), Spacer(1, 4)]
+            if item["tests"]:
+                s.append(Paragraph("<b>Physical tests that would discriminate:</b> " + T("; ".join(item["tests"])), ss["Small"]))
+            if item["missing_evidence"]:
+                s.append(Paragraph("<b>Missing evidence:</b> " + T("; ".join(item["missing_evidence"])), ss["Small"]))
+            s.append(Spacer(1, 8))
+    else:
+        s.append(Paragraph("No diagnostic patterns matched the measured behavior in this log." if dg else
+                           "Diagnostic patterns were not evaluated: the log lacks the system data (fuel, thermal, ignition, intake/boost) they need.", ss["BodyText"]))
 
     # 10 recommendations
     s.append(Paragraph("Recommendations", ss["Heading1"]))

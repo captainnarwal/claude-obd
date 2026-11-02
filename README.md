@@ -52,7 +52,9 @@ Each engine call is a Bash command, so Claude Code asks before the first one. To
 - **Analysis:** data quality, statistics (also by operating condition), time-series behavior, correlation, anomaly detection (robust rolling statistics), plus fuel-system, thermal, ignition/knock, intake/boost, performance and drivetrain modules that report behavior per operating condition. Vehicle profiles (`/obd vehicle`) select engine-family or your own thresholds. Findings are tagged observation / inference / hypothesis with evidence references.
 - **Output:** PNG charts and PDF reports containing only what the data supports.
 
-Not yet: DTC lookup, ranked hypotheses, comparisons, Excel export, MCP server for other Claude apps (see the roadmap in the design doc).
+- **Reference & diagnostics:** `lookup` explains parameters, Mode 01 PIDs and trouble-code structure (no copyrighted code descriptions); a deterministic rule base (13 patterns) turns module findings into ranked hypotheses with alternatives, missing evidence and physical tests. It never says a part is faulty.
+
+Not yet: comparisons, Excel export, MCP server for other Claude apps (see the roadmap in the design doc).
 
 *Analytical assistance only — not a substitute for physical inspection by a qualified technician.*
 

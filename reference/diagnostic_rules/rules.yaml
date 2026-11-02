@@ -1,0 +1,287 @@
+# Diagnostic pattern rules (design doc 7.5). Read by analysis/diagnostics/engine.py.
+#
+# A rule fires when ALL of its `when` conditions hold on the facts produced by the analysis modules. Facts are the modules'
+# metrics flattened to dotted keys, e.g. fuel_system.trims.ltft_b1.by_condition.idle.median. Keys may use * wildcards.
+#
+# condition: {keys: [pattern, ...], op: >= | > | <= | < | abs>=, value: N | ref: [pattern], delta: D, note: "..."}
+#   true if ANY fact matching `keys` satisfies the comparison; unknown (no matching fact) counts as not met.
+# supports: extra conditions that raise the rule's confidence (low -> medium). Confidence is capped at medium because the
+#   thresholds below are generic rules of thumb, not specifications for a particular engine.
+# hypotheses: possible causes with a prior `weight`; `favors` conditions that hold add support, `against` conditions subtract.
+#   Output is a ranking of possibilities, never a statement that a part is defective.
+version: "1"
+rules:
+  - id: lean_at_idle
+    title: Fuel correction is high at idle and falls as load rises
+    category: fuel
+    severity: attention
+    when:
+      - {keys: ["fuel_system.trims.*tft_b*.by_condition.idle.median"], op: ">=", value: 8, note: "fuel trim at idle is positive (ECU adding fuel)"}
+    supports:
+      - {keys: ["fuel_system.trims.*tft_b*.by_condition.high_load.median", "fuel_system.trims.*tft_b*.by_condition.wot.median"], op: "<=",
+         ref: ["fuel_system.trims.*tft_b*.by_condition.idle.median"], delta: -5, note: "the correction is at least 5 points smaller under load"}
+    hypotheses:
+      - cause: "Unmetered air entering after the airflow sensor (for example a vacuum or intake-tract leak)"
+        weight: 0.45
+        favors: [{keys: ["fuel_system.trims.*tft_b*.by_condition.high_load.median", "fuel_system.trims.*tft_b*.by_condition.wot.median"], op: "<=", value: 3, note: "trim is near zero under load, where a small leak matters less"}]
+        against: [{keys: ["fuel_system.trims.*tft_b*.by_condition.high_load.median", "fuel_system.trims.*tft_b*.by_condition.wot.median"], op: ">=", value: 8, note: "trim is also high under load"}]
+      - cause: "Airflow sensor under-reporting at low flow (contamination or drift)"
+        weight: 0.25
+      - cause: "Crankcase-ventilation or evaporative purge flow disturbing the idle mixture"
+        weight: 0.15
+      - cause: "Fuel delivery shortfall (pressure or injector flow)"
+        weight: 0.15
+        favors: [{keys: ["fuel_system.trims.*tft_b*.by_condition.high_load.median", "fuel_system.trims.*tft_b*.by_condition.wot.median"], op: ">=", value: 8, note: "trim is also high under load"}]
+    missing_evidence:
+      - {param: fuel_pressure, why: "fuel pressure at idle and under load helps separate a delivery problem from a metering problem"}
+      - {param: maf, why: "mass air flow at idle to compare against what similar engines show"}
+    tests: ["Smoke-test the intake tract and check vacuum hoses, PCV hoses and the intake boot for leaks", "Compare idle mass air flow with a reference for this engine, and inspect the airflow sensor element", "Re-log with the A/C and electrical loads off to see whether idle trims change"]
+
+  - id: lean_under_load
+    title: Fuel correction is high under load
+    category: fuel
+    severity: attention
+    when:
+      - {keys: ["fuel_system.trims.*tft_b*.by_condition.high_load.median", "fuel_system.trims.*tft_b*.by_condition.wot.median"], op: ">=", value: 8, note: "fuel trim under high load is positive"}
+    supports:
+      - {keys: ["fuel_system.lambda.wot_median"], op: ">=", value: 1.0, note: "the wideband reading is lean at wide-open throttle"}
+    hypotheses:
+      - cause: "Fuel delivery reaching its limit under load (pump, filter, regulator or pressure)"
+        weight: 0.4
+        favors: [{keys: ["fuel_system.lambda.wot_median"], op: ">=", value: 1.0, note: "mixture measured lean at wide-open throttle"}]
+        against: [{keys: ["fuel_system.trims.*tft_b*.by_condition.idle.median"], op: ">=", value: 8, note: "trim is just as high at idle"}]
+      - cause: "Injectors unable to supply enough flow at high demand"
+        weight: 0.2
+      - cause: "Airflow sensor under-reporting at high flow"
+        weight: 0.2
+      - cause: "Unmetered air leaking in (more likely if idle is also affected)"
+        weight: 0.1
+        favors: [{keys: ["fuel_system.trims.*tft_b*.by_condition.idle.median"], op: ">=", value: 8, note: "trim is also high at idle"}]
+    missing_evidence:
+      - {param: fuel_pressure, why: "fuel pressure under load is the most direct check on delivery"}
+      - {param: lambda, why: "a wideband reading shows whether the mixture is actually lean, not just corrected"}
+    tests: ["Measure fuel pressure with a gauge under load or during a log pull", "Inspect the fuel filter and pump supply voltage", "Check the airflow sensor and intake path for restrictions or leaks"]
+
+  - id: rich_trim
+    title: Fuel correction is strongly negative when warm
+    category: fuel
+    severity: attention
+    when:
+      - {keys: ["fuel_system.trims.*tft_b*.warm_mean"], op: "<=", value: -8, note: "warm-engine average trim removes fuel"}
+    hypotheses:
+      - cause: "Excess fuel being delivered (leaking injector or high fuel pressure)"
+        weight: 0.3
+      - cause: "Airflow sensor over-reporting (contamination or drift)"
+        weight: 0.25
+      - cause: "Fuel vapour entering from the evaporative purge system"
+        weight: 0.2
+      - cause: "Oxygen sensor reading biased toward lean"
+        weight: 0.25
+    missing_evidence:
+      - {param: fuel_pressure, why: "high pressure is one possible cause of a rich correction"}
+    tests: ["Check fuel pressure and look for fuel in the vacuum line of the pressure regulator, if fitted", "Inspect the purge valve operation", "Compare the airflow sensor reading with a known-good value at idle"]
+
+  - id: bank_imbalance
+    title: Fuel trims differ noticeably between the two banks
+    category: fuel
+    severity: attention
+    when:
+      - {keys: ["fuel_system.bank_difference.*"], op: "abs>=", value: 6, note: "bank 1 and bank 2 trims differ by 6 points or more"}
+    hypotheses:
+      - cause: "An air leak or restriction that affects only one bank"
+        weight: 0.35
+      - cause: "Injector or fuel delivery difference on one bank"
+        weight: 0.3
+      - cause: "An oxygen sensor on one bank reading biased"
+        weight: 0.25
+      - cause: "Ordinary bank-to-bank asymmetry for this engine"
+        weight: 0.1
+    missing_evidence:
+      - {param: lambda_b2, why: "a wideband reading for each bank shows which bank is really off"}
+    tests: ["Smoke-test each bank's intake runner and gaskets", "Swap or compare upstream oxygen sensor readings between banks", "Compare per-cylinder injector balance if the scan tool supports it"]
+
+  - id: slow_warmup
+    title: Coolant warm-up took a long time
+    category: thermal
+    severity: attention
+    when:
+      - {keys: ["thermal.warmup.time_to_80c_s"], op: ">=", value: 900, note: "warm-up to 80 C took 15 minutes or more"}
+    hypotheses:
+      - cause: "Thermostat opening early or stuck open"
+        weight: 0.4
+      - cause: "Cold ambient temperature or gentle, light-load driving (not a fault)"
+        weight: 0.35
+      - cause: "Coolant temperature sensor reading low"
+        weight: 0.15
+    missing_evidence:
+      - {param: ambient_temp, why: "outside temperature explains much of a slow warm-up"}
+      - {param: oil_temp, why: "oil temperature lagging coolant would support a real thermal difference"}
+    tests: ["Repeat the warm-up in similar conditions and compare", "Compare the logged coolant temperature with an infrared reading of the thermostat housing", "Check whether cabin heat output is weak"]
+
+  - id: heat_under_load
+    title: Coolant climbs well above its normal level
+    category: thermal
+    severity: attention
+    when:
+      - {keys: ["thermal.overshoot.above_median_c"], op: ">=", value: 8, note: "coolant rose 8 C or more above its steady level"}
+    supports:
+      - {keys: ["thermal.load_vs_idle_c"], op: ">=", value: 6, note: "coolant runs hotter under high load than at idle"}
+    hypotheses:
+      - cause: "Cooling capacity limited under load (airflow, radiator or fan)"
+        weight: 0.35
+        favors: [{keys: ["thermal.load_vs_idle_c"], op: ">=", value: 6, note: "temperature follows load"}]
+      - cause: "Sustained heavy load in hot conditions (expected behaviour)"
+        weight: 0.3
+      - cause: "Low coolant level, air pocket or weak coolant flow"
+        weight: 0.2
+      - cause: "Coolant temperature sensor error"
+        weight: 0.1
+    missing_evidence:
+      - {param: ambient_temp, why: "hot weather changes what counts as a high reading"}
+      - {param: oil_temp, why: "a second thermal channel helps rule out a single bad sensor"}
+    tests: ["Check coolant level and look for air in the system", "Verify the cooling fan switches on at the expected temperature", "Cross-check the logged temperature with an infrared reading"]
+
+  - id: knock_under_load
+    title: The ECU removed timing because of knock
+    category: ignition
+    severity: attention
+    when:
+      - {keys: ["ignition.knock_retard.events"], op: ">=", value: 1, note: "one or more knock-retard events"}
+    supports:
+      - {keys: ["ignition.knock_retard.events_by_condition.high_load", "ignition.knock_retard.events_by_condition.wot"], op: ">=", value: 1, note: "the events occurred under load"}
+    hypotheses:
+      - cause: "Lower-octane or poor-quality fuel"
+        weight: 0.3
+      - cause: "High intake or charge-air temperature"
+        weight: 0.2
+        favors: [{keys: ["thermal.iat_idle_minus_cruise_c"], op: ">=", value: 8, note: "intake air heat-soaks noticeably"}]
+      - cause: "Boost above the commanded level"
+        weight: 0.2
+        favors: [{keys: ["intake_boost.boost_vs_target.overshoot_episodes"], op: ">=", value: 1, note: "boost overshot its target"}]
+      - cause: "Lean mixture under load"
+        weight: 0.2
+        favors: [{keys: ["fuel_system.lambda.wot_median"], op: ">=", value: 1.0, note: "mixture measured lean at wide-open throttle"}]
+      - cause: "Deposits, mechanical condition or a noisy knock sensor"
+        weight: 0.1
+    missing_evidence:
+      - {param: lambda, why: "mixture at the moment of knock separates a lean cause from the others"}
+      - {param: iat, why: "intake air temperature at the moment of knock"}
+    tests: ["Repeat the run on a tank of known-good fuel of the recommended octane", "Check the intake-air and coolant temperatures during the knock events", "Verify the mixture with a wideband reading during the pull"]
+
+  - id: boost_shortfall
+    title: Boost stays below the commanded target
+    category: intake
+    severity: attention
+    when:
+      - {keys: ["intake_boost.boost_vs_target.shortfall_episodes"], op: ">=", value: 1, note: "boost fell short of target in at least one sustained episode"}
+    supports:
+      - {keys: ["intake_boost.spool_median_s"], op: ">=", value: 3, note: "boost builds slowly after high load begins"}
+    hypotheses:
+      - cause: "A leak in the charge-air path (hose, clamp, intercooler or intake joint)"
+        weight: 0.4
+      - cause: "Wastegate or boost-control behaviour (actuator, solenoid or calibration)"
+        weight: 0.3
+      - cause: "Reduced turbocharger efficiency"
+        weight: 0.15
+      - cause: "Boost sensor or target calibration offset"
+        weight: 0.15
+    missing_evidence:
+      - {param: wastegate_duty, why: "control duty alongside boost separates a control problem from a leak"}
+    tests: ["Pressure-test the charge-air system for leaks", "Check wastegate actuator movement and control-line integrity", "Compare the boost sensor against a mechanical gauge"]
+
+  - id: misfire_pattern
+    title: Misfire counter increased during the log
+    category: ignition
+    severity: attention
+    when:
+      - {keys: ["ignition.misfire_count.increase"], op: ">=", value: 3, note: "three or more misfires were counted"}
+    supports:
+      - {keys: ["ignition.misfire_count.by_condition.high_load", "ignition.misfire_count.by_condition.wot", "ignition.misfire_count.by_condition.idle"], op: ">=", value: 1, note: "the misfires cluster in a recognisable condition"}
+    hypotheses:
+      - cause: "Ignition components wearing under high demand (spark plugs or coils)"
+        weight: 0.4
+        favors: [{keys: ["ignition.misfire_count.by_condition.high_load", "ignition.misfire_count.by_condition.wot"], op: ">=", value: 1, note: "misfires occurred under load"}]
+      - cause: "Fuel delivery shortfall under load"
+        weight: 0.2
+        favors: [{keys: ["fuel_system.lambda.wot_median"], op: ">=", value: 1.0, note: "mixture measured lean at wide-open throttle"}]
+      - cause: "Air leak disturbing the mixture at low load"
+        weight: 0.2
+        favors: [{keys: ["ignition.misfire_count.by_condition.idle"], op: ">=", value: 1, note: "misfires occurred at idle"}]
+      - cause: "Mechanical condition or fuel quality"
+        weight: 0.2
+    missing_evidence:
+      - {param: lambda, why: "mixture during the misfires helps separate fuel from ignition causes"}
+    tests: ["Inspect and gap or replace spark plugs, and test coils", "Check fuel pressure under load", "Smoke-test for intake leaks if misfires happen at idle"]
+
+  - id: lean_at_full_throttle
+    title: Mixture measured lean at wide-open throttle
+    category: fuel
+    severity: warning
+    when:
+      - {keys: ["fuel_system.lambda.wot_median"], op: ">=", value: 1.0, note: "median lambda at wide-open throttle is at or above 1.0"}
+    hypotheses:
+      - cause: "Fuel delivery not keeping up at full load"
+        weight: 0.4
+      - cause: "Wideband sensor reading or calibration offset"
+        weight: 0.25
+      - cause: "Airflow metering error at high flow"
+        weight: 0.2
+      - cause: "Leaning caused by boost above target"
+        weight: 0.15
+        favors: [{keys: ["intake_boost.boost_vs_target.overshoot_episodes"], op: ">=", value: 1, note: "boost overshot its target"}]
+    missing_evidence:
+      - {param: fuel_pressure, why: "pressure under load separates delivery from the other causes"}
+    tests: ["Verify the mixture with a second wideband reading before acting", "Measure fuel pressure during a full-throttle pull", "Avoid sustained full-throttle running until the cause is understood"]
+
+  - id: boost_at_light_load
+    title: Boost present at idle or light cruise
+    category: intake
+    severity: attention
+    when:
+      - {keys: ["intake_boost.boost.light_load_episodes"], op: ">=", value: 1, note: "sustained boost while the throttle was nearly closed"}
+    hypotheses:
+      - cause: "Boost-control element not returning to its rest state (wastegate or solenoid)"
+        weight: 0.4
+      - cause: "A driving pattern that produces boost at light throttle (for example a downhill load)"
+        weight: 0.25
+      - cause: "Pressure sensor offset"
+        weight: 0.2
+      - cause: "Calibration choice"
+        weight: 0.15
+    missing_evidence:
+      - {param: wastegate_duty, why: "shows what the ECU is commanding while boost is present"}
+    tests: ["Inspect wastegate actuator and control lines for sticking or leaks", "Check the boost sensor against a mechanical gauge at idle"]
+
+  - id: idle_heat_soak
+    title: Intake air is much hotter at idle than when moving
+    category: thermal
+    severity: info
+    when:
+      - {keys: ["thermal.iat_idle_minus_cruise_c"], op: ">=", value: 10, note: "intake air is 10 C or more hotter at idle than at cruise"}
+    hypotheses:
+      - cause: "Heat soak while stationary (limited airflow past the engine bay and intercooler)"
+        weight: 0.5
+      - cause: "Intake air sensor located where it picks up engine heat"
+        weight: 0.3
+      - cause: "Cooling-fan or airflow ducting not helping at idle"
+        weight: 0.2
+    missing_evidence:
+      - {param: ambient_temp, why: "ambient temperature gives a baseline for the intake air reading"}
+    tests: ["Compare intake air temperature against outside temperature after a few minutes at idle", "Check fan operation and under-hood ducting"]
+
+  - id: converter_slip_at_cruise
+    title: Torque-converter slip while cruising
+    category: drivetrain
+    severity: attention
+    when:
+      - {keys: ["drivetrain.tcc_slip.slip_episodes"], op: ">=", value: 1, note: "sustained slip at cruise"}
+    hypotheses:
+      - cause: "Converter clutch not locking when it should (control or clutch condition)"
+        weight: 0.4
+      - cause: "Calibration that keeps the converter unlocked at this speed or load"
+        weight: 0.35
+      - cause: "Transmission fluid condition or level"
+        weight: 0.25
+    missing_evidence:
+      - {param: trans_temp, why: "transmission temperature helps judge fluid condition and load"}
+    tests: ["Check transmission fluid level and condition", "Compare converter behaviour on a steady, level road at the same speed"]

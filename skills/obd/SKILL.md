@@ -44,5 +44,9 @@ Ask the user (only for what they volunteer; everything is optional) for nickname
 ### `/obd clean [file|all]`
 Ask the user to confirm: this deletes processed data in `.obd/` (originals and `obd-reports/` are untouched). Only after a yes, run `delete <file> --yes` or `clean --yes` for all.
 
+## Questions beyond the subcommands
+- Symptoms ("rough idle", "losing power", "check engine light") with a log: follow the `engine-diagnostics` skill.
+- "What does LTFT / PID 0C / P0171 mean?": follow the `obd-parameter-interpretation` skill (`lookup`).
+
 ## Not in this version
-`/obd compare`, Excel reports, DTC lookup and fuel/thermal system diagnosis are planned for a later release. If asked, say so and offer what is available (statistics, anomalies, correlations, charts, PDF).
+`/obd compare` and Excel reports are planned for a later release. If asked, say so and offer what is available (statistics, anomalies, correlations, charts, PDF).

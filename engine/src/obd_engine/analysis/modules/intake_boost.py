@@ -17,7 +17,7 @@ STD_BARO = 101.3
 
 class IntakeBoost(Module):
     id = "intake_boost"
-    version = "1.0.0"
+    version = "1.0.1"
     title = "Intake & Boost"
     required_any = ["map", "boost", "maf"]
     optional = ["baro", "boost_target", "throttle_position", "engine_speed"]
@@ -98,6 +98,7 @@ class IntakeBoost(Module):
             if spool:
                 metrics["spool"] = spool[:10]
                 med = float(np.median([s["spool_s"] for s in spool]))
+                metrics["spool_median_s"] = round(med, 2)
                 fs.append(finding(f"Boost reached {cfg['spool_fraction'] * 100:.0f}% of its peak a median {med:.1f} s after high load began ({len(spool)} run(s))", "intake", "observation",
                                   reason="measured from the start of the high-load span; limited by the boost sampling interval", conditions="high load / wide-open throttle",
                                   ev=[evidence(ctx, "boost" if ctx.has("boost") else "map", spool[0]["t0"], spool[0]["t0"], len(spool), "median_spool", med, "s")]))
@@ -113,6 +114,7 @@ class IntakeBoost(Module):
                     metrics["boost_vs_target"] = {"n": int(err.size), "mean_error_kpa": round(float(err.mean()), 1), "max_overshoot_kpa": round(float(err.max()), 1), "max_undershoot_kpa": round(float(err.min()), 1)}
                     over = runs(ta, (err > cfg["overshoot_min_kpa"]) & (err > tgt * cfg["overshoot_pct"] / 100.0), cfg["episode_s"])
                     under = runs(ta, (tgt > cfg["boost_min_kpa"]) & (err < -cfg["undershoot_kpa"]), cfg["episode_s"])
+                    metrics["boost_vs_target"].update(overshoot_episodes=len(over), shortfall_episodes=len(under))
                     for name, eps, sev in (("overshoot", over, "attention"), ("shortfall", under, "attention")):
                         if eps:
                             i0, i1 = max(eps, key=lambda e: abs(err[e[0]:e[1] + 1]).max())
@@ -127,7 +129,7 @@ class IntakeBoost(Module):
                     notes.append("Boost target and actual could not be paired in enough samples.")
         elif ctx.has("map"):
             notes.append("MAP never exceeded barometric pressure by more than 5 kPa: no boost to analyse (normal for a naturally aspirated engine).")
-        return {"summary": "Intake: " + (f"peak boost {metrics['boost']['peak']:.0f} kPa; " if "boost" in metrics else "") + f"{len(fs)} finding(s).", "metrics": metrics, "findings": fs, "notes": notes}
+        return {"summary": "Intake: " + ((f"peak boost {metrics['boost']['peak']:.0f} kPa; " if metrics["boost"]["peak"] > 0 else f"no positive boost (gauge pressure never above {metrics['boost']['peak']:.0f} kPa); ") if "boost" in metrics else "") + f"{len(fs)} finding(s).", "metrics": metrics, "findings": fs, "notes": notes}
 
 
 register(IntakeBoost())

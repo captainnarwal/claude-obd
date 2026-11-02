@@ -4,3 +4,4 @@ from obd_engine.analysis.generic import anomalies, correlation, statistics, time
 from obd_engine.analysis.modules import (  # noqa: F401
     data_quality, drivetrain, engine_performance, fuel_system, ignition, intake_boost, thermal,
 )
+from obd_engine.analysis.diagnostics import engine as diagnostics_engine  # noqa: E402,F401

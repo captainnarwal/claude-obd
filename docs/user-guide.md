@@ -35,7 +35,7 @@ Put exports in the folder, or give any path. Examples:
 Columns the engine cannot interpret safely (`TEMP`, `MAP` without a unit, fuel trims without a bank, temperatures without °C/°F) are never guessed. Claude asks, you answer, and the data is re-normalized from the raw copy. A column you mark as `custom` stays available for queries and charts but is left out of automotive analysis.
 
 ### Findings
-Each finding is tagged **observation** (measured), **inference** or **hypothesis**, with severity, confidence, the time range, rows and sample count behind it. Findings that rest on a generic threshold are capped at medium confidence and say so. If you describe your vehicle (`/obd vehicle`), engine-family limits (naturally aspirated / turbo petrol / diesel) replace the generic ones, and you can set your own limits for any parameter; each finding names the tier it used. This version produces no hypotheses yet.
+Each finding is tagged **observation** (measured), **inference** or **hypothesis**, with severity, confidence, the time range, rows and sample count behind it. Findings that rest on a generic threshold are capped at medium confidence and say so. If you describe your vehicle (`/obd vehicle`), engine-family limits (naturally aspirated / turbo petrol / diesel) replace the generic ones, and you can set your own limits for any parameter; each finding names the tier it used. A rule base turns the measurements into ranked **hypotheses** (kind `hypothesis`, confidence capped at medium because the thresholds are generic) with the alternatives, the evidence still missing and the physical tests that would tell them apart.
 
 ### What the files are
 ```
@@ -51,7 +51,7 @@ CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, u
 ## Limits and honesty
 - Not a diagnosis. Analytical assistance, not a substitute for physical inspection.
 - No live vehicle connection, no ECU writes, no cloud, no telemetry.
-- Not in this version: DTC lookup, ranked hypotheses, session comparison, Excel export, Claude Desktop/MCP.
+- Not in this version: session comparison, Excel export, Claude Desktop/MCP.
 - Large logs (500 MB, about 3.4 M rows): ingest took ~10 s here, but peak memory was about 2.8 GB, above the 2 GB design target. Correlation uses evenly spaced blocks (about 150k rows) on very large logs and says so.
 
 ## Troubleshooting

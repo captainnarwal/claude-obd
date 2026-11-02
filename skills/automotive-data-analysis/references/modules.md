@@ -15,8 +15,9 @@
 | `engine_performance` | engine speed (throttle and speed improve it) | throttle tip-in response, wide-open-throttle runs, wheel-power lower bound (needs `vehicle set --mass-kg`) |
 | `intake_boost` | MAP, boost or MAF | idle manifold pressure, peak boost, boost at light load, spool time, boost vs target |
 | `drivetrain` | gear, transmission temp, converter slip, or RPM + speed | inferred rpm-per-km/h relationships (gears), shifts, transmission temperature, converter slip at cruise |
+| `diagnostics` | any system module result | runs last, over the system modules' metrics: matched patterns with ranked hypotheses (kind `hypothesis`, confidence capped at medium), alternatives, missing evidence and physical tests. Requesting it alone also runs the system modules |
 
-These system modules report measurements and condition-dependent behavior (observation, sometimes inference). They do not name causes; say so, and do not turn a finding into "your X is faulty".
+These system modules report measurements and condition-dependent behavior (observation, sometimes inference). They do not name causes; only `diagnostics` ranks possible explanations, and never as "your X is faulty".
 
 ## Operating conditions (generic classifier)
 idle = stopped and < 1200 rpm; wot = throttle or load >= 90 %; high_load = throttle >= 60 % or load >= 70 %; cruise = moving >= 5 km/h with throttle < 35 %; warm = coolant >= 80 °C. These are generic - say "generic condition thresholds" when it matters.

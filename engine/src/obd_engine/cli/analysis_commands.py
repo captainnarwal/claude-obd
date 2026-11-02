@@ -15,7 +15,9 @@ from obd_engine.query import service as q
 from obd_engine.storage.catalog import Catalog
 from obd_engine.storage.workspace import Workspace
 
-MAX_FINDINGS_SHOWN = 8
+MAX_FINDINGS_SHOWN = 12  # when a single module is requested
+MAX_ATTENTION_SHOWN = 8  # warning/attention findings shown per module
+MAX_INFO_MULTI = 2  # info findings shown per module when several modules run, so the answer fits the token budget
 
 
 def _open(ns_dataset: str):
@@ -135,15 +137,20 @@ def _findings_view(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
     for r in results:
         fs = sorted(r.get("findings", []), key=lambda f: {"warning": 0, "attention": 1, "info": 2}[f["severity"]])
+        if len(results) == 1:
+            fs = fs[:MAX_FINDINGS_SHOWN]
+        else:
+            loud = [f for f in fs if f["severity"] != "info"][:MAX_ATTENTION_SHOWN]
+            fs = loud + [f for f in fs if f["severity"] == "info"][:MAX_INFO_MULTI]
         shown = [{
             "title": clean_text(f["title"], 200), "kind": f["kind"], "severity": f["severity"], "confidence": f["confidence"]["level"],
             **({"confidence_reason": clean_text(f["confidence"]["reason"], 160)} if f["confidence"].get("reason") else {}),
             **({"alternatives": [clean_text(a, 120) for a in f["alternatives"][:2]]} if f.get("alternatives") else {}),
-            "evidence": f["evidence"][:2], **({"threshold": f["threshold"]} if f.get("threshold") else {}),
-            **({"next_steps": f["next_steps"][:2]} if f.get("next_steps") else {}),
-        } for f in fs[:MAX_FINDINGS_SHOWN]]
+            "evidence": f["evidence"][:1 if len(results) > 1 else 2], **({"threshold": f["threshold"]} if f.get("threshold") else {}),
+            **({"next_steps": f["next_steps"][:2 if len(results) == 1 else 1]} if f.get("next_steps") else {}),
+        } for f in fs]
         out.append({"module": r["module"], "status": r["status"], "summary": r.get("summary"), "findings": shown,
-                    "findings_total": len(fs), "notes": r.get("notes", [])})
+                    "findings_total": len(r.get("findings", [])), "notes": r.get("notes", [])})
     return out
 
 

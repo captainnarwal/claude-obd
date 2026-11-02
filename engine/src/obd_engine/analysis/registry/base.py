@@ -24,6 +24,7 @@ class Context:
     quality: dict[str, Any]
     config: dict[str, Any] = field(default_factory=dict)
     vehicle: dict[str, Any] | None = None  # assigned vehicle profile (engine, drivetrain, limits) or None
+    prior: list[dict[str, Any]] = field(default_factory=list)  # results of the modules already run (post-pass modules only)
 
     @property
     def dataset_id(self) -> str:
@@ -76,6 +77,8 @@ class Module:
     required_all: list[str] = []
     optional: list[str] = []
     config_defaults: dict[str, Any] = {}
+    post_pass = False  # runs after the other modules, reasoning over their results (never calls them)
+    needs: list[str] = []  # modules a post-pass module reasons over; added to the run when it is requested
 
     def applicability(self, ctx: Context) -> tuple[str, str]:
         """('applicable' | 'partial' | 'not_applicable', reason)"""
@@ -127,14 +130,18 @@ def run_modules(ws: Workspace, cat: Catalog, row, module_ids: list[str] | None, 
     unknown = [m for m in ids if m not in reg]
     if unknown:
         raise ObdError("UNKNOWN_MODULE", f"Unknown module(s): {', '.join(unknown)}", f"Available: {', '.join(reg)}", exit_code=2)
+    ids = list(dict.fromkeys([dep for m in ids if reg[m].post_pass for dep in reg[m].needs] + ids))
     run_id = new_id("rn")
     ctx = make_context(ws, cat, row, config)
     cat.add_run(run_id, row["id"], ids, config or {}, {"engine": __version__, "dictionary": load_dictionary().version,
                                                         **{m: reg[m].version for m in ids}})
     results, skipped = [], []
     cached_n = 0
-    for mid in ids:
+    deferred = [m for m in ids if reg[m].post_pass]
+    for mid in [m for m in ids if not reg[m].post_pass] + deferred:
         mod = reg[mid]
+        if mod.post_pass:
+            ctx.prior = list(results)  # uncached: cheap, and it depends on every other module's output
         status, reason = mod.applicability(ctx)
         if status == "not_applicable":
             skipped.append({"module": mid, "reason": reason})
@@ -142,8 +149,8 @@ def run_modules(ws: Workspace, cat: Catalog, row, module_ids: list[str] | None, 
             continue
         cfg = {**mod.config_defaults, **(config or {}).get(mid, {})}
         ctx.config = cfg
-        key = cache_key(ctx, mod, cfg)
-        res = cat.cached_result(key) if use_cache else None
+        key = "" if mod.post_pass else cache_key(ctx, mod, cfg)
+        res = cat.cached_result(key) if use_cache and key else None
         if res is None:
             res = mod.run(ctx)
             res.update(module=mid, version=mod.version, status=status, applicability_note=reason, title=mod.title)

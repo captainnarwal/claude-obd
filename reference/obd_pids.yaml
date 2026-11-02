@@ -1,0 +1,93 @@
+# OBD-II Mode 01 live-data PIDs: formulas are the public SAE J1979 definitions; meanings and tips are written for this project.
+# A, B are the first and second data bytes (0-255). canonical_id links to parameters.yaml.
+version: "1"
+mode_01:
+  - {pid: "03", name: Fuel system status, bytes: 2, formula: "bit-encoded (A: bank 1, B: bank 2)", unit: "", canonical_id: fuel_status,
+     meaning: "Whether the ECU is running open loop (using stored fuel maps) or closed loop (correcting with the oxygen sensors).",
+     tips: "Open loop is normal for the first minute or two after a cold start and at full throttle; staying open loop when warm is worth a look."}
+  - {pid: "04", name: Calculated engine load, bytes: 1, formula: "A * 100 / 255", unit: "%", canonical_id: engine_load,
+     meaning: "How much of the engine's maximum air-charge capacity is being used right now.",
+     tips: "Roughly 15-30% at idle, higher on turbo engines under boost. It is calculated, not measured, so compare trends rather than single values."}
+  - {pid: "05", name: Engine coolant temperature, bytes: 1, formula: "A - 40", unit: "°C", canonical_id: ect,
+     meaning: "Coolant temperature at the engine's sensor.",
+     tips: "Most engines settle near the thermostat rating once warm. A reading stuck at -40 usually means the sensor circuit is not answering."}
+  - {pid: "06", name: Short term fuel trim bank 1, bytes: 1, formula: "A * 100 / 128 - 100", unit: "%", canonical_id: stft_b1,
+     meaning: "The ECU's quick, moment-to-moment fuel correction for bank 1. Positive adds fuel, negative removes it.",
+     tips: "Normally flickers around zero. Read it together with the long-term trim."}
+  - {pid: "07", name: Long term fuel trim bank 1, bytes: 1, formula: "A * 100 / 128 - 100", unit: "%", canonical_id: ltft_b1,
+     meaning: "The slowly learned fuel correction for bank 1; it holds what the short-term trim has needed on average.",
+     tips: "Values within about +/-10% are common. Where the trim is large (idle versus load) says more than the number itself."}
+  - {pid: "08", name: Short term fuel trim bank 2, bytes: 1, formula: "A * 100 / 128 - 100", unit: "%", canonical_id: stft_b2,
+     meaning: "Quick fuel correction for bank 2 (V and boxer engines).",
+     tips: "Compare with bank 1; a difference between banks points at something bank-specific."}
+  - {pid: "09", name: Long term fuel trim bank 2, bytes: 1, formula: "A * 100 / 128 - 100", unit: "%", canonical_id: ltft_b2,
+     meaning: "Learned fuel correction for bank 2.", tips: "Compare with bank 1."}
+  - {pid: "0A", name: Fuel pressure (gauge), bytes: 1, formula: "3 * A", unit: kPa, canonical_id: fuel_pressure,
+     meaning: "Fuel pressure in the rail relative to atmosphere, on engines that report it.",
+     tips: "Should hold steady, rising with demand on direct injection. Most cars do not report this PID."}
+  - {pid: "0B", name: Intake manifold absolute pressure, bytes: 1, formula: "A", unit: kPa, canonical_id: map,
+     meaning: "Air pressure inside the intake manifold, measured against zero (absolute).",
+     tips: "Around 30-45 kPa at warm idle on a healthy naturally aspirated engine, near atmospheric (about 100 kPa) at full throttle, and above that when boosted."}
+  - {pid: "0C", name: Engine speed, bytes: 2, formula: "(256 * A + B) / 4", unit: rpm, canonical_id: engine_speed,
+     meaning: "Crankshaft speed.", tips: "Spikes far above the redline in a log are usually noise or a dropped sample, not real."}
+  - {pid: "0D", name: Vehicle speed, bytes: 1, formula: "A", unit: "km/h", canonical_id: vehicle_speed,
+     meaning: "Road speed as seen by the ECU.", tips: "Whole km/h only, so small accelerations look stepped."}
+  - {pid: "0E", name: Timing advance, bytes: 1, formula: "A / 2 - 64", unit: "°", canonical_id: timing_advance,
+     meaning: "Ignition timing in degrees before top dead centre for cylinder 1.",
+     tips: "Varies with load and speed by design; sudden drops under load can be knock protection. Compare against load, not against a fixed number."}
+  - {pid: "0F", name: Intake air temperature, bytes: 1, formula: "A - 40", unit: "°C", canonical_id: iat,
+     meaning: "Temperature of the air entering the engine.",
+     tips: "Rises when stationary (heat soak) and falls at speed; high values reduce power and promote knock."}
+  - {pid: "10", name: Mass air flow rate, bytes: 2, formula: "(256 * A + B) / 100", unit: "g/s", canonical_id: maf,
+     meaning: "Mass of air entering the engine per second.",
+     tips: "Idle values scale with engine size; compare against similar engines or an earlier log of the same car."}
+  - {pid: "11", name: Throttle position, bytes: 1, formula: "A * 100 / 255", unit: "%", canonical_id: throttle_position,
+     meaning: "How far the throttle plate is open.", tips: "Many cars idle at 10-20% on this PID rather than 0%."}
+  - {pid: "14", name: Oxygen sensor bank 1 sensor 1 voltage, bytes: 2, formula: "A / 200 (V); B: short-term trim", unit: V, canonical_id: o2_b1s1_voltage,
+     meaning: "Narrow-band upstream oxygen sensor: switches around 0.45 V between rich and lean.",
+     tips: "A healthy sensor swings quickly; slow or flat readings suggest an ageing sensor."}
+  - {pid: "1F", name: Run time since engine start, bytes: 2, formula: "256 * A + B", unit: s, canonical_id: engine_run_time,
+     meaning: "Seconds the engine has been running.", tips: "Resets at each start; useful for spotting cold starts inside a log."}
+  - {pid: "21", name: Distance travelled with MIL on, bytes: 2, formula: "256 * A + B", unit: km, canonical_id: distance_mil,
+     meaning: "Distance driven since the check-engine light came on.", tips: "Zero means the light is off."}
+  - {pid: "24", name: Oxygen sensor 1 wideband equivalence ratio, bytes: 4, formula: "2 * (256 * A + B) / 65536", unit: "λ", canonical_id: lambda,
+     meaning: "Air-fuel equivalence ratio from a wideband sensor: 1.0 is chemically balanced, below 1 rich, above 1 lean.",
+     tips: "Under full throttle most petrol engines are commanded rich (about 0.85-0.9); lean readings there deserve attention."}
+  - {pid: "2C", name: Commanded EGR, bytes: 1, formula: "A * 100 / 255", unit: "%", canonical_id: egr_commanded,
+     meaning: "How far the ECU is asking the exhaust-gas-recirculation valve to open.", tips: "Normally zero at idle and full throttle."}
+  - {pid: "2F", name: Fuel tank level input, bytes: 1, formula: "A * 100 / 255", unit: "%", canonical_id: fuel_level,
+     meaning: "Fuel level in the tank.", tips: "Slosh makes it noisy; look at trends."}
+  - {pid: "31", name: Distance since codes cleared, bytes: 2, formula: "256 * A + B", unit: km, canonical_id: distance_since_clear,
+     meaning: "Distance driven since fault codes were last erased.",
+     tips: "A very small number means codes were cleared recently, which can hide recent problems."}
+  - {pid: "33", name: Absolute barometric pressure, bytes: 1, formula: "A", unit: kPa, canonical_id: baro,
+     meaning: "Outside air pressure.", tips: "About 101 kPa at sea level, lower at altitude; used to turn MAP into boost."}
+  - {pid: "42", name: Control module voltage, bytes: 2, formula: "(256 * A + B) / 1000", unit: V, canonical_id: control_module_voltage,
+     meaning: "Supply voltage at the ECU.", tips: "About 13.5-14.5 V with the engine running; much lower suggests a charging problem."}
+  - {pid: "43", name: Absolute load value, bytes: 2, formula: "(256 * A + B) * 100 / 255", unit: "%", canonical_id: absolute_load,
+     meaning: "Air mass per intake stroke normalised so 100% is the air in a full cylinder at standard conditions.",
+     tips: "Can exceed 100% when turbocharged."}
+  - {pid: "46", name: Ambient air temperature, bytes: 1, formula: "A - 40", unit: "°C", canonical_id: ambient_temp,
+     meaning: "Outside air temperature.", tips: "Often slow to update and affected by heat from the engine bay."}
+  - {pid: "49", name: Accelerator pedal position D, bytes: 1, formula: "A * 100 / 255", unit: "%", canonical_id: accelerator_pedal,
+     meaning: "How far the driver is pressing the pedal.", tips: "Compare with throttle position to see how much the ECU is shaping the request."}
+  - {pid: "5C", name: Engine oil temperature, bytes: 1, formula: "A - 40", unit: "°C", canonical_id: oil_temp,
+     meaning: "Oil temperature.", tips: "Lags coolant temperature on warm-up and can run higher on hard driving."}
+  - {pid: "5E", name: Engine fuel rate, bytes: 2, formula: "(256 * A + B) / 20", unit: "L/h", canonical_id: fuel_rate,
+     meaning: "Fuel consumed per hour, as calculated by the ECU.", tips: "A calculated value, not a flow-meter reading."}
+  - {pid: "62", name: Actual engine torque, bytes: 1, formula: "A - 125", unit: "%", canonical_id: engine_torque,
+     meaning: "Torque as a percentage of the engine's reference torque.", tips: "Not a dyno number; it follows the ECU's own model."}
+
+# Parameters in the dictionary that have no standard Mode 01 PID (usually enhanced or logger channels).
+parameters:
+  boost: {meaning: "Manifold pressure above outside air pressure (gauge boost), either reported directly or calculated as MAP minus barometric pressure.", tips: "Positive values are boost, negative values are vacuum. Check the unit (kPa vs psi) before comparing."}
+  boost_target: {meaning: "The boost the ECU is asking the turbocharger for.", tips: "Compare against actual boost: a persistent gap under load is the useful signal."}
+  knock_retard: {meaning: "How many degrees of ignition timing the ECU has removed because it detected knock.", tips: "Zero is normal. Brief small values can occur on hot days or poor fuel; repeated or large values under load matter."}
+  knock_count: {meaning: "Running count of knock events recorded by the ECU.", tips: "A counter: look at how much it rises, and when."}
+  misfire_count: {meaning: "Running count of detected misfires.", tips: "A counter: a few counts at start-up are common; a steady climb under load is what to look at."}
+  wastegate_duty: {meaning: "How hard the ECU is driving the wastegate or boost-control solenoid.", tips: "Interpret together with boost versus target."}
+  egt_b1: {meaning: "Exhaust gas temperature before or after the turbo, bank 1, on engines that report it.", tips: "Rises sharply with load; sensor position changes what is normal."}
+  injector_pulse_width: {meaning: "How long the injectors are held open each cycle.", tips: "Grows with load; idle values vary a lot between engines."}
+  lambda_b2: {meaning: "Wideband air-fuel equivalence ratio for bank 2.", tips: "Compare with bank 1."}
+  o2_b2s2_voltage: {meaning: "Downstream oxygen sensor on bank 2, used to judge catalyst performance.", tips: "A healthy downstream sensor is steadier than the upstream one."}
+  turbo_speed: {meaning: "Turbocharger shaft speed where reported.", tips: "Very high values with low boost can indicate a leak or turbo issue, but judging that needs the engine's rated limits."}

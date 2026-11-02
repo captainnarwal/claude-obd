@@ -1,0 +1,51 @@
+# Diagnostic trouble code structure. Official SAE J2012 description text is copyrighted and is NOT included.
+# "topic" strings are short paraphrases of the monitored area written for this project; they are not the standard titles.
+version: "1"
+format: "^[PCBU][0-3][0-9A-F]{3}$"
+systems:
+  P: Powertrain (engine, transmission and emissions)
+  C: Chassis (brakes, steering, suspension)
+  B: Body (airbags, climate, comfort)
+  U: Network (module communication)
+scope:
+  P: {"0": "generic (defined by the standard; same meaning on every make)", "1": "manufacturer-specific (meaning depends on the make)", "2": "generic (defined by the standard)", "3": "mostly manufacturer-specific, with a generic block from P3400 to P3999"}
+  C: {"0": generic, "1": manufacturer-specific, "2": manufacturer-specific, "3": reserved}
+  B: {"0": generic, "1": manufacturer-specific, "2": manufacturer-specific, "3": reserved}
+  U: {"0": generic, "1": manufacturer-specific, "2": manufacturer-specific, "3": reserved}
+p_subsystem:
+  "0": fuel and air metering and auxiliary emission controls
+  "1": fuel and air metering
+  "2": fuel and air metering (injector circuit)
+  "3": ignition system or misfire
+  "4": auxiliary emission controls
+  "5": vehicle speed control and idle control
+  "6": computer and output circuits
+  "7": transmission
+  "8": transmission
+  "9": transmission
+  "A": hybrid propulsion
+  "B": hybrid propulsion
+  "C": hybrid propulsion
+# Generic powertrain code families (inclusive ranges of the numeric part of P0xxx) with the parameters that relate to them.
+families:
+  - {from: 100, to: 104, topic: "airflow measurement (mass air flow sensing)", params: [maf]}
+  - {from: 105, to: 109, topic: "manifold pressure sensing", params: [map, baro]}
+  - {from: 110, to: 114, topic: "intake air temperature sensing", params: [iat]}
+  - {from: 115, to: 119, topic: "coolant temperature sensing", params: [ect]}
+  - {from: 120, to: 124, topic: "throttle or pedal position sensing", params: [throttle_position, accelerator_pedal]}
+  - {from: 125, to: 128, topic: "warm-up and closed-loop readiness (coolant not reaching the expected temperature in time)", params: [ect, fuel_status]}
+  - {from: 130, to: 167, topic: "oxygen sensor signal, heater or response", params: [o2_b1s1_voltage, o2_b1s2_voltage, o2_b2s1_voltage, o2_b2s2_voltage, lambda]}
+  - {from: 170, to: 175, topic: "fuel correction (trim) reaching its limit; neighbouring codes distinguish lean from rich and bank 1 from bank 2", params: [stft_b1, ltft_b1, stft_b2, ltft_b2]}
+  - {from: 190, to: 194, topic: "fuel rail pressure sensing", params: [fuel_rail_pressure, fuel_pressure]}
+  - {from: 200, to: 212, topic: "fuel injector circuits", params: [injector_pulse_width]}
+  - {from: 234, to: 234, topic: "boost higher than commanded", params: [boost, boost_target, map]}
+  - {from: 299, to: 299, topic: "boost lower than commanded", params: [boost, boost_target, map]}
+  - {from: 300, to: 312, topic: "misfire detection (P0300 is random or multiple cylinders, P0301 onward name a cylinder)", params: [misfire_count, engine_speed]}
+  - {from: 325, to: 334, topic: "knock sensor circuit", params: [knock_retard, knock_count]}
+  - {from: 335, to: 349, topic: "crankshaft or camshaft position sensing", params: [engine_speed]}
+  - {from: 400, to: 409, topic: "exhaust gas recirculation", params: [egr_commanded, egr_error]}
+  - {from: 420, to: 439, topic: "catalytic converter efficiency", params: [o2_b1s1_voltage, o2_b1s2_voltage, catalyst_temp_b1s1]}
+  - {from: 440, to: 459, topic: "evaporative emission system", params: [evap_purge, fuel_level]}
+  - {from: 500, to: 507, topic: "vehicle speed or idle speed control", params: [vehicle_speed, engine_speed]}
+  - {from: 600, to: 699, topic: "control module and communication", params: []}
+  - {from: 700, to: 799, topic: "automatic transmission", params: [trans_temp, gear, tcc_slip]}

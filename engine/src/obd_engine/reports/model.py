@@ -30,6 +30,13 @@ def _vehicle_block(v: dict[str, Any] | None) -> dict[str, Any]:
             "year": v.get("year") or "unknown", "engine": eng, "threshold_tier": tier}
 
 
+def _diagnostics_block(r: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not r or r.get("status") == "not_applicable":
+        return None
+    m = r.get("metrics", {})
+    return {"findings": r.get("findings", []), "ranked": m.get("hypotheses", []), "rules_version": m.get("rules_version"), "rules_evaluated": m.get("rules_evaluated"), "notes": r.get("notes", [])}
+
+
 def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any]], run_ids: list[str] | None = None) -> dict[str, Any]:
     ds = row["id"]
     results = {r["module"]: r for r in cat.latest_results(ds)}
@@ -60,9 +67,14 @@ def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any
         if miss:
             log_next.append(f"{group}: log {', '.join(d.params[p].name for p in miss if p in d.params)}")
 
+    for f in findings:
+        for m in f.get("missing_evidence", []):
+            if m not in log_next:
+                log_next.append(m)
     limitations = [f"{mod}: not performed - {r.get('reason')}" for mod, r in results.items() if r.get("status") == "not_applicable"]
     limitations += [
-        "Ranked diagnostic hypotheses are not part of this version; the system sections report measurements and condition-dependent behavior, not causes.",
+        "System sections report measurements and condition-dependent behavior. Diagnostic hypotheses, where shown, are ranked possibilities from "
+        "deterministic rules with generic thresholds - not a diagnosis, and relative support is not a probability.",
         "Thresholds are generic sanity ranges, not specifications for your engine; findings that use them are capped at medium confidence.",
     ]
     low_conf = [m["original_name"] for m in maps if m["status"] == "needs_confirmation"]
@@ -91,7 +103,7 @@ def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any
         "anomalies": results.get("anomalies", {}).get("metrics", {}).get("events", [])[:15],
         "anomaly_findings": results.get("anomalies", {}).get("findings", []),
         "correlations": results.get("correlation", {}).get("metrics", {}).get("pairs", [])[:8],
-        "diagnostics": [],  # Phase 2: ranked hypotheses
+        "diagnostics": _diagnostics_block(results.get("diagnostics")),
         "recommendations": recs[:10], "log_next_time": log_next,
         "limitations": limitations, "charts": charts,
         "mappings": [{k: m.get(k) for k in ("original_name", "canonical_id", "source_unit", "canonical_unit", "confidence", "method", "status", "confirmed_by")} for m in maps],
