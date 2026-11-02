@@ -45,7 +45,7 @@ def test_injected_faults_are_found_with_evidence(ws, run, copy_log):
     assert _has(mods, "thermal", "hotter at idle than at cruise")
     for m in ("fuel_system", "ignition", "intake_boost"):
         for f in mods[m]["findings"]:
-            assert f["evidence"], f["title"]
+            assert f.get("evidence") or f["severity"] == "info", f["title"]  # compact multi-module view keeps evidence for loud findings
             assert f["kind"] in ("observation", "inference")
     # generic-threshold findings are capped at medium confidence and say so
     lean = next(f for f in mods["fuel_system"]["findings"] if "lean at wide-open" in f["title"])

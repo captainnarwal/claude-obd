@@ -51,7 +51,7 @@ CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, u
 ## Limits and honesty
 - Not a diagnosis. Analytical assistance, not a substitute for physical inspection.
 - No live vehicle connection, no ECU writes, no cloud, no telemetry.
-- Not in this version: Claude Desktop/MCP.
+- Not in this version: ECU-logger formats (MegaLog, Haltech...), ML anomaly detection, reading stored trouble codes from a file.
 - Large logs (500 MB, about 3.4 M rows): ingest took ~10 s here, but peak memory was about 2.8 GB, above the 2 GB design target. Correlation uses evenly spaced blocks (about 150k rows) on very large logs and says so.
 
 ## Troubleshooting
@@ -62,3 +62,19 @@ CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, u
 | "File too large" for XLSX | export the sheet to CSV |
 | Columns missing from the report | they await confirmation - answer Claude's questions or `map` them |
 | Results look stale after editing the file | re-ingest with `--force`; the engine warns when the hash changed |
+
+## Using the engine from Claude Desktop or another MCP client
+The engine also runs as an MCP server (stdio), exposing every command as a tool (`obd_scan`, `obd_ingest`, `obd_analyze`, ...) with the same inputs and the same JSON results. Claude Code does not need it (the skills already call the engine); it is for other MCP clients. After `/obd setup`, point the client at the launcher and a working folder:
+
+```json
+{
+  "mcpServers": {
+    "obd": {
+      "command": "bash",
+      "args": ["<plugin folder>/scripts/obd", "mcp", "--workspace", "<folder with your logs>"],
+      "env": { "CLAUDE_PLUGIN_DATA": "<plugin data folder from setup>" }
+    }
+  }
+}
+```
+On Windows put this in `%APPDATA%\Claude\claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`); `bash` is Git Bash. The server reads files only from the workspace (plus any `--allow-dir <folder>` you add), writes `.obd/` and `obd-reports/` there, and never makes network calls. To try it in Claude Code: `claude mcp add obd -- bash <plugin folder>/scripts/obd mcp --workspace <folder>`.

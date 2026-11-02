@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from obd_engine.analysis.generic.correlation import correlate_pair
 from obd_engine.analysis.generic.statistics import compute_stats, select_params
+from obd_engine.analysis.modules._common import CONDITION_NOTE
 from obd_engine.analysis.registry.base import make_context, registry, run_modules
 from obd_engine.cli.envelope import Envelope, ObdError, clean_text
 from obd_engine.ingestion import service as ing
@@ -133,6 +134,30 @@ def correlate_cmd(ns) -> Envelope:
 
 
 # ---- analyze / anomalies ----
+def _finding_row(f: dict[str, Any], multi: bool, diag: bool) -> dict[str, Any]:
+    """One finding as shown by `analyze`. With several modules the row is compact so the whole answer fits the token budget;
+    ask for a single module (--modules <id>) to get full evidence, thresholds and next steps."""
+    row: dict[str, Any] = {"title": clean_text(f["title"], 200), "kind": f["kind"], "severity": f["severity"], "confidence": f["confidence"]["level"]}
+    if f["confidence"].get("reason") and (not multi or f["severity"] != "info" or diag):
+        row["confidence_reason"] = clean_text(f["confidence"]["reason"], 110 if multi else 160)
+    alts = f.get("alternatives", [])[: (2 if diag or not multi else 1)]
+    if alts:
+        row["alternatives"] = [clean_text(a, 100 if multi else 120) for a in alts]
+    loud = f["severity"] != "info"
+    if not multi:
+        row["evidence"] = f["evidence"][:2]
+    elif loud and not diag and f["evidence"]:
+        e = f["evidence"][0]
+        row["evidence"] = [{k: v for k, v in e.items() if k not in ("dataset_id", "row_span")}]
+    t = f.get("threshold")
+    if t:
+        row["threshold"] = t if not multi else {k: t[k] for k in ("tier", "limit", "unit") if k in t and t[k] not in (None, "")}
+    steps = f.get("next_steps", [])[: (2 if not multi else 1)]
+    if steps and (not multi or loud or diag):
+        row["next_steps"] = [clean_text(x, 120 if multi else 200) for x in steps]
+    return row
+
+
 def _findings_view(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
     for r in results:
@@ -142,15 +167,11 @@ def _findings_view(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         else:
             loud = [f for f in fs if f["severity"] != "info"][:MAX_ATTENTION_SHOWN]
             fs = loud + [f for f in fs if f["severity"] == "info"][:MAX_INFO_MULTI]
-        shown = [{
-            "title": clean_text(f["title"], 200), "kind": f["kind"], "severity": f["severity"], "confidence": f["confidence"]["level"],
-            **({"confidence_reason": clean_text(f["confidence"]["reason"], 160)} if f["confidence"].get("reason") else {}),
-            **({"alternatives": [clean_text(a, 120) for a in f["alternatives"][:2]]} if f.get("alternatives") else {}),
-            "evidence": f["evidence"][:1 if len(results) > 1 else 2], **({"threshold": f["threshold"]} if f.get("threshold") else {}),
-            **({"next_steps": f["next_steps"][:2 if len(results) == 1 else 1]} if f.get("next_steps") else {}),
-        } for f in fs]
+        multi = len(results) > 1
+        shown = [_finding_row(f, multi, r["module"] == "diagnostics") for f in fs]
+        notes = [n for n in r.get("notes", []) if not (multi and n.startswith("Conditions use"))]
         out.append({"module": r["module"], "status": r["status"], "summary": r.get("summary"), "findings": shown,
-                    "findings_total": len(r.get("findings", [])), "notes": r.get("notes", [])})
+                    "findings_total": len(r.get("findings", [])), "notes": notes})
     return out
 
 
@@ -178,6 +199,8 @@ def analyze_cmd(ns) -> Envelope:
         n_f = sum(v["findings_total"] for v in view)
         warn = sum(1 for r in run["results"] for f in r.get("findings", []) if f["severity"] != "info")
         data: dict[str, Any] = {"run_id": run["run_id"], "modules": view, "skipped": run["skipped"]}
+        if len(view) > 1:
+            data["notes"] = [CONDITION_NOTE]
         if ns.detail:
             data["metrics"] = {r["module"]: r.get("metrics") for r in run["results"]}
         return Envelope(

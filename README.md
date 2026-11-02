@@ -57,7 +57,9 @@ Each engine call is a Bash command, so Claude Code asks before the first one. To
 - **Excel & compare:** `report --format xlsx|both` writes an Excel workbook from the same report model (formula-injection safe); `compare` gives condition-matched differences between runs with 95% intervals and comparability warnings.
 - **Read guard:** a plugin hook nudges Claude to use the engine instead of reading big telemetry files directly.
 
-Not yet: MCP server for other Claude apps (see the roadmap in the design doc).
+- **MCP server:** `scripts/obd mcp` exposes every command as a tool for Claude Desktop and other MCP clients (opt-in; see the user guide and `docs/adr/0001-mcp-is-opt-in.md`).
+
+Not yet: ECU-logger formats, ML anomaly detection (see the roadmap in the design doc).
 
 *Analytical assistance only — not a substitute for physical inspection by a qualified technician.*
 

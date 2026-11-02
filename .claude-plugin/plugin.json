@@ -1,6 +1,6 @@
 {
   "name": "obd-analyst",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Automotive Intelligence: analyze OBD-II / ECU log exports locally. Evidence-backed findings, charts and PDF reports without sending raw telemetry to Claude.",
   "author": { "name": "Neeraj Narwal" },
   "homepage": "https://github.com/captainnarwal/claude-obd",

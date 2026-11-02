@@ -3,14 +3,14 @@
   "owner": { "name": "Neeraj Narwal" },
   "metadata": {
     "description": "Marketplace for the claude-obd automotive log analysis plugin",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "obd-analyst",
       "source": "./",
-      "description": "Analyze OBD-II / ECU log exports locally: data quality, statistics, anomalies, charts and PDF reports.",
-      "version": "0.1.0",
+      "description": "Analyze OBD-II / ECU log exports locally: fuel, thermal, ignition and boost analysis, ranked hypotheses, comparisons, charts, PDF and Excel reports.",
+      "version": "0.2.0",
       "category": "automotive"
     }
   ]

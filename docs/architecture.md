@@ -1,22 +1,29 @@
 # Architecture (implementation notes)
 
-The full design is in [../automotive-intelligence-design-doc.md](../automotive-intelligence-design-doc.md). This page records how v0.1 maps onto it and where it deliberately differs.
+The full design is in [../automotive-intelligence-design-doc.md](../automotive-intelligence-design-doc.md). This page records how v0.2 maps onto it and where it deliberately differs.
 
 ## Layout
 ```
 .claude-plugin/        plugin.json, marketplace.json (plugin name obd-analyst; "claude-" names are reserved)
-skills/                obd (router), automotive-data-analysis, vehicle-report-generation, communicating-findings
+skills/                obd (router), automotive-data-analysis, vehicle-report-generation, communicating-findings,
+                       engine-diagnostics, obd-parameter-interpretation, performance-ecu-log-analysis
+hooks/                 hooks.json + scripts/hooks/read-guard.sh (non-blocking Read-size steer)
 scripts/obd            bash launcher: venv lookup, version check, SETUP_REQUIRED envelope (exit 4)
 scripts/setup/         setup.sh (uv or venv+pip, selftest, setup.json), doctor.sh
 engine/src/obd_engine/
-  cli/                 envelope.py (JSON envelope, budget thinning), commands.py, analysis_commands.py, main.py
+  cli/                 envelope.py (JSON envelope, budget thinning), commands.py, analysis_commands.py, vehicle_commands.py,
+                       lookup_commands.py, main.py (execute() is shared by the CLI and the MCP server)
+  mcp/                 schema.py (tools derived from the argparse registry), server.py (stdio, official SDK)
   security/            path/size/zip-bomb/macro checks
   ingestion/           discovery -> adapters -> mapping -> normalize; service.py wires inspect/ingest/remap
   storage/             workspace (.obd), catalog (SQLite + migrations)
   query/               DuckDB windowed loads, LTTB, bucket downsampling, as-of alignment, block thinning
-  analysis/            registry (module contract, orchestrator, cache), conditions, generic/, modules/
-  charts/  reports/    Matplotlib PNG, report model, ReportLab PDF
-reference/parameters.yaml   canonical parameter dictionary (data, not code)
+  analysis/            registry (module contract, orchestrator, cache, post-pass), conditions, generic/, modules/ (data quality +
+                       fuel, thermal, ignition, engine performance, intake/boost, drivetrain), diagnostics/ (rule engine),
+                       thresholds.py (vehicle > engine-family > generic), compare.py
+  charts/  reports/    Matplotlib PNG, report model, ReportLab PDF, XlsxWriter Excel (both render the same model)
+  reference/           dictionary loader, lookup (PIDs, parameters, DTC structure)
+reference/             parameters.yaml, obd_pids.yaml, dtc_structure.yaml, thresholds/, diagnostic_rules/ (data, not code)
 tools/synthetic_log_generator   seeded drive cycles with injectable faults
 ```
 
@@ -33,9 +40,21 @@ tools/synthetic_log_generator   seeded drive cycles with injectable faults
 - **Analysis cache** key: file hash, mapping version, module id + version, config, dictionary version, engine version. Bump a module's `version` when its logic changes.
 - **Report** is built from stored module results, so it is reproducible and shares the cache with conversational `analyze`.
 
+## Phase 2 additions
+- **Vehicles and sessions** live in the per-folder catalog (migration 2); the engine profile and drivetrain are JSON columns. The global cross-folder vehicle library is not built.
+- **Threshold tiers**: `limits_for(param, vehicle)` returns vehicle > engine-family > generic from `reference/thresholds/*.yaml`; the vehicle's threshold profile is part of every analysis cache key.
+- **System modules** report per operating condition and never name a cause. `diagnostics` is a *post-pass* module: the orchestrator runs it after the others, hands it their results, and does not cache it. Requesting it alone also runs the modules it needs.
+- **Rule base**: YAML rules match wildcard keys over the modules' flattened metrics; hypotheses are ranked by prior weight + favoring - against evidence. Confidence is capped at medium because rule thresholds are generic. DTC support is structure plus paraphrased topics; no copyrighted description text ships.
+- **MCP**: tools are generated from the argparse registry (`obd_<command>`), run through `execute()`, and return the same envelope. The workspace and readable folders are fixed at server start (`--workspace`, `--allow-dir`, enforced by `OBD_ALLOWED_DIRS`). See `docs/adr/0001-mcp-is-opt-in.md`.
+- **Analyze output** is compact when several modules run (loud findings kept, info findings capped, shorter evidence); ask for one module to get full detail. Budget thinning never drops a whole module.
+
 ## Known gaps vs the design doc
 - Torque Pro adapter built from documented format + synthetic fixtures, not real exports (open question Q2).
 - 500 MB ingest memory: ~2.8 GB peak working set vs the 2 GB target (the streaming CSV->Parquet step retains ~1.2 GB; normalization adds the rest). Time is well within target (~10 s vs 120 s).
 - Report PDF visual layout was verified by text extraction and structure tests, not by eye (no PDF rasterizer in the dev environment).
 - Install tests for macOS/Linux exist as CI jobs only; they have not run locally (dev machine is Windows/Git Bash).
-- Perf CI, Claude-in-the-loop evals, the Read-size hook, fuel/thermal modules, vehicles/sessions, Excel, MCP: Phase 2+.
+- Claude-in-the-loop evals exist as cases plus a transcript scorer (`tests/evals`) but are not run in CI; perf benchmarks run nightly, not on PRs.
+- The MCP server has been tested over stdio with the SDK client here, not yet with Claude Desktop or on macOS/Linux.
+- Diagnostic rules are a starter set of 13 with generic thresholds and no automotive-expert review yet; the lazy-O2 pattern needs a response-time analysis that is not built.
+- No DTC *presence* data: `lookup dtc` decodes structure only; reading stored codes from a file is not implemented.
+- Phase 3 (ECU logger adapters, advanced comparison, ML anomaly detection, engine-family knowledge packs) is not started.

@@ -81,6 +81,9 @@ def _thin_largest_list(env: Envelope) -> bool:
     found = [f for f in found if len(f[1]) > 3]
     if not found:
         return False
+    # Never drop whole analysis modules from an answer: thin their findings instead (the module list is kept intact).
+    kept = [f for f in found if not all(isinstance(x, dict) and "module" in x and "findings" in x for x in f[1])]
+    found = kept or found
     lst = max(found, key=lambda f: f[0])[1]
     n_keep = max(len(lst) // 2, 2)
     keep = sorted({round(i * (len(lst) - 1) / (n_keep - 1)) for i in range(n_keep)})

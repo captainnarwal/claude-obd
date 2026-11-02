@@ -48,6 +48,9 @@ def scan(ns) -> Envelope:
         folder = ws.root / folder
     if not folder.is_dir():
         raise ObdError("FILE_NOT_FOUND", f"Folder not found: {ns.folder}")
+    from obd_engine.security.checks import require_allowed
+
+    require_allowed(folder.resolve())
     ingested = {}
     if ws.catalog_path.exists():
         cat = Catalog(ws)

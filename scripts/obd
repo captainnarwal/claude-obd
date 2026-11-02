@@ -2,12 +2,15 @@
 # Launcher for the claude-obd engine. Skills call: "${CLAUDE_PLUGIN_ROOT}/scripts/obd" <command> [args] --json
 # Resolves the venv created by `/obd setup` in ${CLAUDE_PLUGIN_DATA}; never touches PATH or global packages.
 set -u
+MODE=cli
+if [ "${1:-}" = "mcp" ]; then MODE=mcp; shift; fi   # `obd mcp [--workspace DIR]` runs the MCP server (stdout is the protocol)
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$SELF_DIR/.." && pwd)}"
 DATA="${CLAUDE_PLUGIN_DATA:-$ROOT/.obd-plugin-data}"
 
 setup_required() {
-  # $1 = reason. One JSON envelope on stdout, exit code 4 (environment error).
+  # $1 = reason. One JSON envelope on stdout (stderr in MCP mode), exit code 4 (environment error).
+  if [ "$MODE" = mcp ]; then echo "obd-analyst MCP server: engine not set up ($1). Run /obd setup in Claude Code, or scripts/setup/setup.sh." >&2; exit 4; fi
   printf '{"status":"error","summary":"The engine is not set up. Run /obd setup.","error":{"code":"SETUP_REQUIRED","message":"%s","hint":"Run /obd setup (takes 1-3 minutes, needs internet once)."}}\n' "$1"
   exit 4
 }
@@ -31,4 +34,5 @@ export OBD_REFERENCE_DIR="${OBD_REFERENCE_DIR:-$ROOT/reference}"
 export OBD_SAMPLE="${OBD_SAMPLE:-$ROOT/samples/sample-drive.csv}"
 export PYTHONIOENCODING=utf-8
 export PYTHONUTF8=1
+if [ "$MODE" = mcp ]; then exec "$PY" -m obd_engine.mcp "$@"; fi
 exec "$PY" -m obd_engine "$@"

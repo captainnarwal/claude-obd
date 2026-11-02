@@ -25,6 +25,7 @@ def resolve_input(path: str | os.PathLike[str], cwd: Path | None = None) -> Path
         real = p.resolve(strict=True)
     except (FileNotFoundError, OSError):
         raise ObdError("FILE_NOT_FOUND", f"File not found: {path}", "Check the path or run `scan` to list files.")
+    require_allowed(real)
     mode = real.stat().st_mode
     if stat.S_ISDIR(mode):
         raise ObdError("NOT_A_FILE", f"{path} is a directory, not a file.")
@@ -63,3 +64,17 @@ def inside(child: Path, parent: Path) -> bool:
         return True
     except ValueError:
         return False
+
+
+def allowed_roots() -> list[Path] | None:
+    """Folders the engine may read from. None = unrestricted (Claude Code's permission prompts govern paths there).
+    The MCP server sets OBD_ALLOWED_DIRS to the workspace plus any --allow-dir, because MCP clients have no such prompt."""
+    raw = os.environ.get("OBD_ALLOWED_DIRS")
+    return [Path(x).resolve() for x in raw.split(os.pathsep) if x] if raw else None
+
+
+def require_allowed(real: Path) -> None:
+    roots = allowed_roots()
+    if roots is not None and not any(inside(real, r) for r in roots):
+        raise ObdError("PATH_NOT_ALLOWED", f"{real.name} is outside the folders this server may read.",
+                       "Move or copy the file into the working folder, or start the server with --allow-dir <folder>.", exit_code=3)
