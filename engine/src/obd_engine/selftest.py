@@ -34,6 +34,8 @@ def run_selftest() -> Envelope:
     from obd_engine.storage.workspace import Workspace
 
     stages: list[dict] = []
+    # The MCP sandbox (OBD_ALLOWED_DIRS) would reject our own temp copy; selftest only touches that copy.
+    saved_roots = os.environ.pop("OBD_ALLOWED_DIRS", None)
     tmp = Path(tempfile.mkdtemp(prefix="obd-selftest-"))
     sample = sample_path()
     work = tmp / sample.name
@@ -79,6 +81,8 @@ def run_selftest() -> Envelope:
     except Exception:
         ok = False
     finally:
+        if saved_roots is not None:
+            os.environ["OBD_ALLOWED_DIRS"] = saved_roots
         if cat:
             cat.close()
         shutil.rmtree(tmp, ignore_errors=True)
