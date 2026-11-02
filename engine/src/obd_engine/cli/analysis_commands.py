@@ -241,19 +241,50 @@ def chart_cmd(ns) -> Envelope:
         cat.close()
 
 
+# ---- compare ----
+def compare_setup(sp):
+    """Condition-matched comparison of two or more runs (the first is the baseline)."""
+    sp.add_argument("datasets", nargs="+", help="baseline first, then one or more runs to compare with it")
+    sp.add_argument("--params", help="limit to these parameters (comma separated)")
+
+
+def compare_cmd(ns) -> Envelope:
+    from obd_engine.analysis.compare import compare
+
+    if len(ns.datasets) < 2:
+        raise ObdError("USAGE", "Give at least two datasets (baseline first).", exit_code=2)
+    ws = Workspace.current()
+    if not ws.catalog_path.exists():
+        raise ObdError("DATASET_NOT_FOUND", "Nothing has been ingested in this folder yet.", "Run `ingest <file>` first.")
+    cat = Catalog(ws)
+    try:
+        rows = [ing.resolve_dataset(cat, d) for d in ns.datasets]
+        params = q.resolve_params(ws, rows[0]["id"], _csv(ns.params)) if ns.params else None
+        res = compare(ws, cat, rows, params)
+        clear = sum(c["clear_differences"] for c in res["comparisons"])
+        warn = [w for c in res["comparisons"] for w in c["warnings"]]
+        return Envelope(
+            status="ok" if res["comparisons"] else "partial",
+            summary=f"Compared {len(res['comparisons'])} run(s) with {rows[0]['file_name']}: {clear} clear difference(s) in matched conditions.",
+            data=res, method="warm-engine samples compared within the same operating condition; difference of means with a 95% interval",
+            evidence=[{"dataset_id": r["id"]} for r in rows], caveats=list(dict.fromkeys(warn))[:6] + res["notes"][2:3])
+    finally:
+        cat.close()
+
+
 # ---- report ----
 def report_setup(sp):
-    """Build a PDF report from the analysis of a dataset."""
+    """Build a PDF and/or Excel report from the analysis of a dataset."""
     sp.add_argument("dataset", help="dataset id, file name, or 'all'")
     sp.add_argument("--title")
-    sp.add_argument("--format", default="pdf", choices=["pdf"])
+    sp.add_argument("--format", default="pdf", choices=["pdf", "xlsx", "both"])
     sp.add_argument("--no-charts", action="store_true")
 
 
 KEY_CHART_PARAMS = ["engine_speed", "vehicle_speed", "throttle_position", "ect", "engine_load", "map"]
 
 
-def _report_one(ws, cat, row, title, charts_on) -> dict[str, Any]:
+def _report_one(ws, cat, row, title, charts_on, fmt: str = "pdf") -> dict[str, Any]:
     import datetime as dt
 
     from obd_engine.charts.render import render_chart
@@ -273,12 +304,22 @@ def _report_one(ws, cat, row, title, charts_on) -> dict[str, Any]:
     ws.ensure_reports()
     stem = row["file_name"].rsplit(".", 1)[0].replace(" ", "-")
     out = ws.reports_dir / f"{stem}-report-{dt.date.today().isoformat()}.pdf"
-    render_pdf(model, out)
+    files = {}
+    if fmt in ("pdf", "both"):
+        render_pdf(model, out)
+        files["pdf"] = out
+    if fmt in ("xlsx", "both"):
+        from obd_engine.reports.excel import render_xlsx
+
+        files["xlsx"] = render_xlsx(model, out.with_suffix(".xlsx"), ws, row["id"])
     rid = new_id("rp")
-    cat.add_report(rid, [row["id"]], [run["run_id"]], "pdf", str(out))
+    for f, path in files.items():
+        cat.add_report(rid if f == "pdf" or len(files) == 1 else new_id("rp"), [row["id"]], [run["run_id"]], f, str(path))
+    first = next(iter(files.values()))
     n_find = len(model["summary_points"])
-    return {"report_id": rid, "path": str(out), "relative_path": str(out.relative_to(ws.root)), "dataset_id": row["id"], "summary_findings": n_find,
-            "charts": [c["relative_path"] for c in charts], "sections_skipped": [l for l in model["limitations"] if "not performed" in l]}
+    return {"report_id": rid, "path": str(first), "relative_path": str(first.relative_to(ws.root)), "files": {f: str(p.relative_to(ws.root)) for f, p in files.items()},
+            "dataset_id": row["id"], "summary_findings": n_find, "charts": [c["relative_path"] for c in charts],
+            "sections_skipped": [l for l in model["limitations"] if "not performed" in l]}
 
 
 def report_cmd(ns) -> Envelope:
@@ -290,10 +331,10 @@ def report_cmd(ns) -> Envelope:
         rows = cat.list_datasets() if ns.dataset == "all" else [ing.resolve_dataset(cat, ns.dataset)]
         if not rows:
             raise ObdError("DATASET_NOT_FOUND", "No datasets to report on.")
-        outs = [_report_one(ws, cat, r, ns.title, not ns.no_charts) for r in rows]
+        outs = [_report_one(ws, cat, r, ns.title, not ns.no_charts, ns.format) for r in rows]
         pending = [r["file_name"] for r in rows if any(m["status"] == "needs_confirmation" for m in cat.get_mappings(r["id"]))]
         return Envelope(
-            status="ok", summary=f"Wrote {len(outs)} PDF report(s): " + ", ".join(o["relative_path"] for o in outs) + ".", data={"reports": outs},
+            status="ok", summary=f"Wrote {len(outs)} report(s): " + ", ".join(p for o in outs for p in o["files"].values()) + ".", data={"reports": outs},
             caveats=([f"Unconfirmed column mappings exist for: {', '.join(pending)}; those columns are excluded from the report."] if pending else []),
             method="report built from cached deterministic module results; sections appear only when supported by the data",
         )
@@ -309,4 +350,5 @@ COMMANDS: dict[str, tuple[Callable, Callable[[argparse.Namespace], Envelope]]] =
     "analyze": (analyze_setup, analyze_cmd),
     "chart": (chart_setup, chart_cmd),
     "report": (report_setup, report_cmd),
+    "compare": (compare_setup, compare_cmd),
 }

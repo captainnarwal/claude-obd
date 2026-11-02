@@ -206,7 +206,7 @@ def main() -> None:
     a = ap.parse_args()
     dur = a.duration
     if a.mb:
-        bytes_per_row = {"torque": 155, "perf": 210}.get(a.style, 110)
+        bytes_per_row = {"torque": 155, "perf": 105}.get(a.style, 110)
         dur = a.mb * 1024 * 1024 / bytes_per_row / a.hz
     p = generate(a.out, dur, a.hz, a.style, set(filter(None, a.faults.split(","))), a.seed)
     print(f"{p} {p.stat().st_size / 1024**2:.1f} MB")

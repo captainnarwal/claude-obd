@@ -49,7 +49,7 @@ def load(ws: Workspace, dataset_id: str, params: list[str], t0: float | None = N
     schema = pl.read_parquet_schema(path)
     cols = list(dict.fromkeys([*with_meta, *params]))
     qcols = [f"{p}__q" for p in params if f"{p}__q" in schema] if not include_flagged else []
-    sel = ", ".join(f'"{c}"' for c in [*cols, *qcols] if c in schema)
+    sel = ", ".join('"' + c.replace('"', '""') + '"' for c in [*cols, *qcols] if c in schema)  # column names come from untrusted headers
     where, args = [], [str(path)]
     if t0 is not None:
         where.append("t >= ?")

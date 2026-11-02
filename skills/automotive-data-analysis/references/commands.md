@@ -16,7 +16,8 @@ Always: `"${CLAUDE_PLUGIN_ROOT}/scripts/obd" <command> ... --json`. One JSON env
 | `anomalies <dataset>` | spikes, flatlines, impossible combinations | `--params`, `--sensitivity low|medium|high` |
 | `analyze <dataset>` | run modules | `--modules auto|id,id` `--list-modules` `--no-cache` `--detail` |
 | `chart <dataset>` | PNG into `obd-reports/charts/` | `--type timeseries|scatter|histogram|comparison` `--params` `--t0 --t1` `--name` `--compare ds2,ds3` |
-| `report <dataset|all>` | PDF into `obd-reports/` | `--title`, `--no-charts` |
+| `report <dataset|all>` | PDF and/or Excel into `obd-reports/` | `--format pdf|xlsx|both` (default pdf), `--title`, `--no-charts` |
+| `compare <a> <b> [<c>...]` | condition-matched deltas of each run vs the first, with 95% intervals and comparability warnings | `--params a,b` |
 | `delete <dataset>` / `clean` | remove processed data (needs `--yes`) | `--all`, `--yes` |
 | `vehicle <add|set|show|list|assign|delete>` | vehicle/engine profile; selects threshold tier (vehicle > engine-family > generic) | `--nickname --make --model --year --vin`, engine: `--displacement --cylinders --aspiration na|turbo|supercharged --fuel --redline`, drivetrain: `--transmission --mass-kg`, `--limit "ect:>:112:°C:attention"`, `assign <vehicle> <dataset>`, `delete --yes` |
 | `session <add|list|assign>` | group datasets from one outing | `--label --vehicle --condition key=value`, `assign <session> <dataset>` |

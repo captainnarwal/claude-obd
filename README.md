@@ -54,7 +54,10 @@ Each engine call is a Bash command, so Claude Code asks before the first one. To
 
 - **Reference & diagnostics:** `lookup` explains parameters, Mode 01 PIDs and trouble-code structure (no copyrighted code descriptions); a deterministic rule base (13 patterns) turns module findings into ranked hypotheses with alternatives, missing evidence and physical tests. It never says a part is faulty.
 
-Not yet: comparisons, Excel export, MCP server for other Claude apps (see the roadmap in the design doc).
+- **Excel & compare:** `report --format xlsx|both` writes an Excel workbook from the same report model (formula-injection safe); `compare` gives condition-matched differences between runs with 95% intervals and comparability warnings.
+- **Read guard:** a plugin hook nudges Claude to use the engine instead of reading big telemetry files directly.
+
+Not yet: MCP server for other Claude apps (see the roadmap in the design doc).
 
 *Analytical assistance only — not a substitute for physical inspection by a qualified technician.*
 

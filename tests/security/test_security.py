@@ -92,3 +92,15 @@ def test_original_file_never_modified(run, copy_log, ws):
 def test_usage_error_exit_code(run):
     code, env = run("ingest")
     assert code == 2 and env["error"]["code"] == "USAGE"
+
+
+def test_hostile_column_names_cannot_break_or_inject_into_queries(ws, run):
+    hdr = 'Time (s),Engine RPM,Vehicle Speed (km/h),"a"" FROM read_parquet(\'x\'); DROP TABLE t; --","quote"" name"'
+    rows = [hdr] + [f"{i * 0.5},{900 + (i % 7)},{i % 40},{i},{i % 3}" for i in range(300)]
+    (ws / "hostile.csv").write_text("\n".join(rows), encoding="utf-8")
+    code, env = run("ingest", "hostile.csv")
+    assert code == 0 and env["data"]["dataset_id"]
+    ds = env["data"]["dataset_id"]
+    for cmd in (("analyze", ds), ("stats", ds), ("report", ds, "--no-charts"), ("report", ds, "--format", "xlsx", "--no-charts")):
+        code, env = run(*cmd)
+        assert code == 0, (cmd, env.get("error"))

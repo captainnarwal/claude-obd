@@ -1,0 +1,27 @@
+name: perf
+
+# Nightly benchmarks on synthetic logs (design doc 13). Not part of the PR gate.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      sizes_mb:
+        description: Comma separated log sizes in MB
+        default: "10,100,500"
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: cd engine && uv sync
+      - name: Benchmarks
+        env:
+          OBD_PERF: "1"
+          OBD_PERF_MB: ${{ github.event.inputs.sizes_mb || '10,100,500' }}
+        run: cd engine && uv run pytest ../tests/perf -q -s

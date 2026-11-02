@@ -37,7 +37,7 @@ def test_no_top_level_bin_directory():
 
 
 def test_skills_have_frontmatter_and_router_targets_exist():
-    for d in ("obd", "automotive-data-analysis", "vehicle-report-generation", "communicating-findings", "engine-diagnostics", "obd-parameter-interpretation"):
+    for d in ("obd", "automotive-data-analysis", "vehicle-report-generation", "communicating-findings", "engine-diagnostics", "obd-parameter-interpretation", "performance-ecu-log-analysis"):
         text = (ROOT / "skills" / d / "SKILL.md").read_text(encoding="utf-8")
         m = re.match(r"---\n(.*?)\n---\n", text, re.S)
         assert m, d

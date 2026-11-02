@@ -1,0 +1,13 @@
+{
+  "description": "Steers Claude to the obd engine instead of reading large telemetry files directly (context blowup, no validation).",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          { "type": "command", "command": "\"${CLAUDE_PLUGIN_ROOT}\"/scripts/hooks/read-guard.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

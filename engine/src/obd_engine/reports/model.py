@@ -92,7 +92,7 @@ def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any
         "dataset": {"id": ds, "file": row["file_name"], "adapter": row["adapter"], "rows": row["row_count"], "duration_s": row["duration_s"],
                     "file_hash": row["file_hash"][:16]},
         "vehicle": _vehicle_block(cat.vehicle_for_dataset(ds)),
-        "summary_points": summary_points,
+        "summary_points": summary_points, "all_findings": findings,
         "quality": {"findings": quality.get("findings", []), "parameters": quality.get("metrics", {}).get("parameters", []),
                     "time": quality.get("metrics", {}).get("time", {}), "usable_for": usable, "notes": quality.get("notes", [])},
         "stats": stats.get("stats", {}), "by_condition": stats.get("by_condition", {}),

@@ -5,7 +5,7 @@ description: Build a PDF report from an analyzed vehicle log. Use when the user 
 
 # Vehicle report generation
 
-Reports come from the engine, never from text you write yourself: the engine assembles a PDF from stored, reproducible analysis results (evidence, methods, versions included). Excel reports are not available yet; say so if asked and offer the PDF.
+Reports come from the engine, never from text you write yourself: the engine assembles a PDF from stored, reproducible analysis results (evidence, methods, versions included). `report <dataset> --format pdf|xlsx|both` produces the PDF and/or an Excel workbook (same content: findings, hypotheses, statistics, data quality, mappings, downsampled normalized data); offer Excel when the user wants to sort, filter or share the numbers, and PDF for a mechanic or a summary.
 
 ## Steps
 1. Make sure the data is ingested: `list`. If not, run the first-look workflow from `automotive-data-analysis` (`inspect`, ask about ambiguous columns, `ingest`).

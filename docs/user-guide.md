@@ -51,7 +51,7 @@ CSV/TSV/TXT (any common delimiter and encoding, decimal comma, preamble lines, u
 ## Limits and honesty
 - Not a diagnosis. Analytical assistance, not a substitute for physical inspection.
 - No live vehicle connection, no ECU writes, no cloud, no telemetry.
-- Not in this version: session comparison, Excel export, Claude Desktop/MCP.
+- Not in this version: Claude Desktop/MCP.
 - Large logs (500 MB, about 3.4 M rows): ingest took ~10 s here, but peak memory was about 2.8 GB, above the 2 GB design target. Correlation uses evenly spaced blocks (about 150k rows) on very large logs and says so.
 
 ## Troubleshooting
