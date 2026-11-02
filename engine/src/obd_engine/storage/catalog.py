@@ -38,6 +38,19 @@ MIGRATIONS: list[str] = [
       id TEXT PRIMARY KEY, dataset_ids TEXT, run_ids TEXT, format TEXT, path TEXT, created_at REAL NOT NULL
     );
     """,
+    # 2: vehicles (engine / drivetrain profiles inline as JSON) and logging sessions
+    """
+    CREATE TABLE vehicles (
+      id TEXT PRIMARY KEY, nickname TEXT, make TEXT, model TEXT, year INTEGER, vin TEXT, notes TEXT,
+      engine_json TEXT NOT NULL DEFAULT '{}', drivetrain_json TEXT NOT NULL DEFAULT '{}',
+      limits_json TEXT NOT NULL DEFAULT '{}', created_at REAL NOT NULL
+    );
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY, vehicle_id TEXT, label TEXT, conditions_json TEXT NOT NULL DEFAULT '{}', created_at REAL NOT NULL
+    );
+    ALTER TABLE datasets ADD COLUMN vehicle_id TEXT;
+    ALTER TABLE datasets ADD COLUMN session_id TEXT;
+    """,
 ]
 
 
@@ -105,6 +118,85 @@ class Catalog:
             for t in ("mappings", "quality", "results", "runs"):
                 c.execute(f"DELETE FROM {t} WHERE dataset_id=?", (dataset_id,))
             c.execute("DELETE FROM datasets WHERE id=?", (dataset_id,))
+
+    # ---- vehicles / sessions
+    _VEHICLE_JSON = ("engine", "drivetrain", "limits")
+
+    @classmethod
+    def _vehicle_dict(cls, r: sqlite3.Row) -> dict[str, Any]:
+        d = dict(r)
+        for k in cls._VEHICLE_JSON:
+            d[k] = json.loads(d.pop(f"{k}_json") or "{}")
+        return d
+
+    def add_vehicle(self, vehicle_id: str, fields: dict[str, Any]) -> None:
+        row = {"id": vehicle_id, "created_at": time.time()}
+        for k in ("nickname", "make", "model", "year", "vin", "notes"):
+            row[k] = fields.get(k)
+        for k in self._VEHICLE_JSON:
+            row[f"{k}_json"] = json.dumps(fields.get(k) or {})
+        with self.tx() as c:
+            c.execute(f"INSERT INTO vehicles ({', '.join(row)}) VALUES ({', '.join('?' for _ in row)})", list(row.values()))
+
+    def update_vehicle(self, vehicle_id: str, fields: dict[str, Any]) -> None:
+        """Scalar fields replace; engine/drivetrain/limits merge key-by-key."""
+        cur = self.get_vehicle(vehicle_id)
+        if cur is None:
+            return
+        sets: dict[str, Any] = {k: v for k, v in fields.items() if k in ("nickname", "make", "model", "year", "vin", "notes")}
+        for k in self._VEHICLE_JSON:
+            if k in fields:
+                sets[f"{k}_json"] = json.dumps({**cur[k], **fields[k]})
+        if sets:
+            with self.tx() as c:
+                c.execute(f"UPDATE vehicles SET {', '.join(f'{k}=?' for k in sets)} WHERE id=?", [*sets.values(), vehicle_id])
+
+    def get_vehicle(self, vehicle_id: str) -> dict[str, Any] | None:
+        r = self.conn.execute("SELECT * FROM vehicles WHERE id=?", (vehicle_id,)).fetchone()
+        return self._vehicle_dict(r) if r else None
+
+    def find_vehicle(self, ref: str) -> dict[str, Any] | None:
+        r = self.conn.execute("SELECT * FROM vehicles WHERE id=? OR nickname=? ORDER BY created_at DESC", (ref, ref)).fetchone()
+        return self._vehicle_dict(r) if r else None
+
+    def list_vehicles(self) -> list[dict[str, Any]]:
+        return [self._vehicle_dict(r) for r in self.conn.execute("SELECT * FROM vehicles ORDER BY created_at")]
+
+    def delete_vehicle(self, vehicle_id: str) -> None:
+        with self.tx() as c:
+            c.execute("UPDATE datasets SET vehicle_id=NULL WHERE vehicle_id=?", (vehicle_id,))
+            c.execute("UPDATE sessions SET vehicle_id=NULL WHERE vehicle_id=?", (vehicle_id,))
+            c.execute("DELETE FROM vehicles WHERE id=?", (vehicle_id,))
+
+    def add_session(self, session_id: str, vehicle_id: str | None, label: str | None, conditions: dict[str, Any]) -> None:
+        with self.tx() as c:
+            c.execute("INSERT INTO sessions VALUES (?,?,?,?,?)", (session_id, vehicle_id, label, json.dumps(conditions), time.time()))
+
+    def find_session(self, ref: str) -> dict[str, Any] | None:
+        r = self.conn.execute("SELECT * FROM sessions WHERE id=? OR label=? ORDER BY created_at DESC", (ref, ref)).fetchone()
+        return self._session_dict(r) if r else None
+
+    def list_sessions(self) -> list[dict[str, Any]]:
+        return [self._session_dict(r) for r in self.conn.execute("SELECT * FROM sessions ORDER BY created_at")]
+
+    @staticmethod
+    def _session_dict(r: sqlite3.Row) -> dict[str, Any]:
+        d = dict(r)
+        d["conditions"] = json.loads(d.pop("conditions_json") or "{}")
+        return d
+
+    def assign_dataset(self, dataset_id: str, vehicle_id: str | None = None, session_id: str | None = None) -> None:
+        sets = {k: v for k, v in (("vehicle_id", vehicle_id), ("session_id", session_id)) if v is not None}
+        if session_id is not None and vehicle_id is None:
+            s = self.conn.execute("SELECT vehicle_id FROM sessions WHERE id=?", (session_id,)).fetchone()
+            if s and s["vehicle_id"]:
+                sets["vehicle_id"] = s["vehicle_id"]
+        if sets:
+            self.update_dataset(dataset_id, **sets)
+
+    def vehicle_for_dataset(self, dataset_id: str) -> dict[str, Any] | None:
+        r = self.conn.execute("SELECT vehicle_id FROM datasets WHERE id=?", (dataset_id,)).fetchone()
+        return self.get_vehicle(r["vehicle_id"]) if r and r["vehicle_id"] else None
 
     # ---- mappings / quality
     def replace_mappings(self, dataset_id: str, rows: list[dict[str, Any]]) -> None:

@@ -217,3 +217,7 @@ COMMANDS: dict[str, tuple[Callable, Handler]] = {
 from obd_engine.cli import analysis_commands  # noqa: E402
 
 COMMANDS.update(analysis_commands.COMMANDS)
+
+from obd_engine.cli import vehicle_commands  # noqa: E402
+
+COMMANDS.update(vehicle_commands.COMMANDS)

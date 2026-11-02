@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from obd_engine import __version__
+from obd_engine.analysis.thresholds import profile_key
 from obd_engine.cli.envelope import ObdError
 from obd_engine.reference.loader import load_dictionary
 from obd_engine.storage.catalog import Catalog, new_id
@@ -22,6 +23,7 @@ class Context:
     params: dict[str, dict[str, Any]]  # available parameter -> quality info (mapped, n, unit, ...)
     quality: dict[str, Any]
     config: dict[str, Any] = field(default_factory=dict)
+    vehicle: dict[str, Any] | None = None  # assigned vehicle profile (engine, drivetrain, limits) or None
 
     @property
     def dataset_id(self) -> str:
@@ -107,13 +109,13 @@ def registry() -> dict[str, Module]:
 
 def make_context(ws: Workspace, cat: Catalog, row, config: dict[str, Any] | None = None) -> Context:
     q = cat.get_quality(row["id"]) or {}
-    return Context(ws, cat, row, q.get("parameters", {}), q, config or {})
+    return Context(ws, cat, row, q.get("parameters", {}), q, config or {}, cat.vehicle_for_dataset(row["id"]))
 
 
 def cache_key(ctx: Context, mod: Module, cfg: dict[str, Any]) -> str:
     payload = json.dumps({
         "h": ctx.dataset["file_hash"], "mv": ctx.dataset["mapping_version"], "m": mod.id, "v": mod.version,
-        "cfg": cfg, "dict": load_dictionary().version, "engine": __version__,
+        "cfg": cfg, "dict": load_dictionary().version, "engine": __version__, "veh": profile_key(ctx.vehicle),
     }, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()[:24]
 

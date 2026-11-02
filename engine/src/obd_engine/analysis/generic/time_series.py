@@ -50,7 +50,7 @@ class TimeSeries(Module):
             steady = float(np.mean(roc <= max(0.02 * rng, 1e-9) / max(float(np.median(dt)), 1e-9))) if rng > 0 else 1.0
             metrics[p] = {"unit": unit, "trend_per_min": round(slope, 4), "p99_rate_of_change_per_s": round(p99, 4),
                           "steady_state_fraction": round(steady, 3), "n": int(x.size)}
-            for lim in limits_for(p):
+            for lim in limits_for(p, ctx.vehicle):
                 hit = (x > lim["limit"]) if lim["op"] == ">" else (x < lim["limit"])
                 if hit.any():
                     # require the condition to persist for >= 3 samples to avoid isolated blips

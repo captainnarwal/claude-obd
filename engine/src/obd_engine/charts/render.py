@@ -95,14 +95,14 @@ def render_chart(ws: Workspace, cat: Catalog, row, kind: str, params: list[str],
                 for m in anomalies.get(p, []):
                     if (t0 is None or m[0] >= t0) and (t1 is None or m[0] <= t1):
                         ax.axvline(m[0], color="#c0392b", alpha=0.5, linewidth=0.8, linestyle=":")
-                for lim in limits_for(p):
+                for lim in limits_for(p, ctx.vehicle):
                     ax.axhline(lim["limit"], color="#c0392b", linestyle="--", linewidth=0.8, alpha=0.7)
                     ax.text(0.995, lim["limit"], f" {lim['tier']} limit {lim['limit']:g}", transform=ax.get_yaxis_transform(), ha="right", va="bottom", fontsize=7, color="#c0392b")
             ax.set_ylabel(f"{p}{_unit(ctx, p)}", fontsize=8)
             _style(ax)
         axes[-1, 0].set_xlabel("time (s)")
         fig.suptitle(f"{row['file_name']}", fontsize=10, x=0.01, ha="left")
-        caption = f"Time series of {', '.join(params)}; orange bands = wide-open-throttle/max-load spans, dotted red = detected anomalies, dashed = generic limits."
+        caption = f"Time series of {', '.join(params)}; orange bands = wide-open-throttle/max-load spans, dotted red = detected anomalies, dashed = limits (tier shown on the line)."
     elif kind == "scatter":
         al, _ = q.asof_align(df, params)
         if al.height < 3:

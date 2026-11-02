@@ -35,7 +35,7 @@ Put exports in the folder, or give any path. Examples:
 Columns the engine cannot interpret safely (`TEMP`, `MAP` without a unit, fuel trims without a bank, temperatures without °C/°F) are never guessed. Claude asks, you answer, and the data is re-normalized from the raw copy. A column you mark as `custom` stays available for queries and charts but is left out of automotive analysis.
 
 ### Findings
-Each finding is tagged **observation** (measured), **inference** or **hypothesis**, with severity, confidence, the time range, rows and sample count behind it. Findings that rest on a generic threshold are capped at medium confidence and say so. This version has no engine-specific thresholds and produces no hypotheses.
+Each finding is tagged **observation** (measured), **inference** or **hypothesis**, with severity, confidence, the time range, rows and sample count behind it. Findings that rest on a generic threshold are capped at medium confidence and say so. If you describe your vehicle (`/obd vehicle`), engine-family limits (naturally aspirated / turbo petrol / diesel) replace the generic ones, and you can set your own limits for any parameter; each finding names the tier it used. This version produces no hypotheses yet.
 
 ### What the files are
 ```

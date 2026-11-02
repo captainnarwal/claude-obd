@@ -107,8 +107,8 @@ def render_pdf(model: dict[str, Any], out: Path) -> Path:
     # 3 vehicle & session
     v = model["vehicle"]
     s += [Paragraph("Vehicle and session", ss["Heading1"]),
-          _table([["Make", "Model", "Year", "Engine"], [v["make"], v["model"], v["year"], v["engine"]]], [W / 4] * 4),
-          Paragraph("Vehicle details were not provided; they are shown as unknown and generic thresholds were used.", ss["Cap"])]
+          _table([["Make", "Model", "Year", "Engine"], [T(str(v["make"])), T(str(v["model"])), T(str(v["year"])), T(str(v["engine"]))]], [W / 4] * 4),
+          Paragraph(T("Thresholds used: " + v["threshold_tier"] + "." + ("" if v.get("known") else " Vehicle details were not provided and are shown as unknown.")), ss["Cap"])]
 
     # 4 dataset overview
     q = model["quality"]

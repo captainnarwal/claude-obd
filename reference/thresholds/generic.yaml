@@ -1,0 +1,14 @@
+# Generic sanity limits (design doc 9.4, tier 3). Broad ranges only - they may not apply to a given engine.
+# Each entry: {name, op, limit, unit, severity}. op is ">" or "<".
+version: "1"
+source: generic sanity range; may not apply to your engine
+limits:
+  ect:
+    - {name: coolant temperature high, op: ">", limit: 110.0, unit: "°C", severity: attention}
+    - {name: coolant temperature very high, op: ">", limit: 120.0, unit: "°C", severity: warning}
+  oil_temp:
+    - {name: oil temperature high, op: ">", limit: 140.0, unit: "°C", severity: attention}
+  control_module_voltage:
+    - {name: system voltage low while running, op: "<", limit: 11.5, unit: V, severity: attention}
+  iat:
+    - {name: intake air temperature high, op: ">", limit: 70.0, unit: "°C", severity: attention}

@@ -1,0 +1,37 @@
+# Engine-family limits (design doc 9.4, tier 2). A family replaces the generic limits for each parameter it lists.
+# These are general engineering rules of thumb, NOT manufacturer specifications - a vehicle-specific limit
+# (vehicle set --limit ...) always overrides them. Selected from the vehicle's engine aspiration + fuel.
+version: "1"
+families:
+  na_petrol:
+    label: naturally aspirated petrol
+    source: engine-family rule of thumb (naturally aspirated petrol); not a manufacturer specification
+    limits:
+      ect:
+        - {name: coolant temperature high, op: ">", limit: 105.0, unit: "°C", severity: attention}
+        - {name: coolant temperature very high, op: ">", limit: 115.0, unit: "°C", severity: warning}
+      oil_temp:
+        - {name: oil temperature high, op: ">", limit: 135.0, unit: "°C", severity: attention}
+      iat:
+        - {name: intake air temperature high, op: ">", limit: 65.0, unit: "°C", severity: attention}
+  turbo_petrol:
+    label: turbocharged / supercharged petrol
+    source: engine-family rule of thumb (forced-induction petrol); not a manufacturer specification
+    limits:
+      ect:
+        - {name: coolant temperature high, op: ">", limit: 108.0, unit: "°C", severity: attention}
+        - {name: coolant temperature very high, op: ">", limit: 118.0, unit: "°C", severity: warning}
+      oil_temp:
+        - {name: oil temperature high, op: ">", limit: 130.0, unit: "°C", severity: attention}
+        - {name: oil temperature very high, op: ">", limit: 150.0, unit: "°C", severity: warning}
+      iat:
+        - {name: intake air temperature high (post-intercooler), op: ">", limit: 60.0, unit: "°C", severity: attention}
+  diesel:
+    label: diesel
+    source: engine-family rule of thumb (diesel); not a manufacturer specification
+    limits:
+      ect:
+        - {name: coolant temperature high, op: ">", limit: 105.0, unit: "°C", severity: attention}
+        - {name: coolant temperature very high, op: ">", limit: 115.0, unit: "°C", severity: warning}
+      oil_temp:
+        - {name: oil temperature high, op: ">", limit: 135.0, unit: "°C", severity: attention}

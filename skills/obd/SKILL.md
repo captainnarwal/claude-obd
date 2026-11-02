@@ -1,7 +1,7 @@
 ---
 name: obd
 description: Entry point for the claude-obd plugin. Use for "/obd" commands - setup, doctor, scan, analyze, report, clean - and whenever the user asks to set up or check the OBD analysis engine, list log files in a folder, or build a report from a vehicle log.
-argument-hint: setup | doctor | scan [folder] | analyze <file|all> | report <file|all> | clean [file|all]
+argument-hint: setup | doctor | scan [folder] | analyze <file|all> | report <file|all> | vehicle | clean [file|all]
 ---
 
 # /obd - command router
@@ -38,8 +38,11 @@ Run the full first-look workflow from `automotive-data-analysis` (inspect, resol
 ### `/obd report <file|all>`
 Follow `vehicle-report-generation`: make sure the file is ingested and its mappings confirmed, then run `report <file|all>` and present the PDF path and a short summary.
 
+### `/obd vehicle`
+Ask the user (only for what they volunteer; everything is optional) for nickname, make/model/year, engine aspiration (na / turbo / supercharged), fuel and displacement. Run `vehicle add ...`, then `vehicle assign <vehicle> <dataset>` for the log(s) in question. Aspiration + fuel select engine-family thresholds instead of generic ones; the user can also give their own limits (`--limit "ect:>:112:°C:attention"`). Never ask for the full VIN; if given, it is stored locally and masked in output. Re-run `analyze` afterwards: results that depend on the vehicle are recomputed. Use `vehicle show|set|list` to review or change, and `session add` / `session assign` to group runs from one outing.
+
 ### `/obd clean [file|all]`
 Ask the user to confirm: this deletes processed data in `.obd/` (originals and `obd-reports/` are untouched). Only after a yes, run `delete <file> --yes` or `clean --yes` for all.
 
 ## Not in this version
-`/obd compare`, `/obd vehicle`, Excel reports, DTC lookup and fuel/thermal system diagnosis are planned for a later release. If asked, say so and offer what is available (statistics, anomalies, correlations, charts, PDF).
+`/obd compare`, Excel reports, DTC lookup and fuel/thermal system diagnosis are planned for a later release. If asked, say so and offer what is available (statistics, anomalies, correlations, charts, PDF).

@@ -7,12 +7,26 @@ from typing import Any
 
 from obd_engine import __version__
 from obd_engine.analysis.modules.data_quality import USABLE_FOR
+from obd_engine.analysis.thresholds import family_for
 from obd_engine.reference.loader import load_dictionary
 from obd_engine.storage.catalog import Catalog
 
 SEV_ORDER = {"warning": 0, "attention": 1, "info": 2}
 DISCLAIMER = ("This report is analytical assistance based solely on the supplied log. It is not a substitute for physical inspection; "
               "consult a qualified technician before acting on any finding, particularly for safety-critical systems.")
+
+
+def _vehicle_block(v: dict[str, Any] | None) -> dict[str, Any]:
+    if not v:
+        return {"known": False, "make": "unknown", "model": "unknown", "year": "unknown", "engine": "unknown", "threshold_tier": "generic"}
+    e = v.get("engine") or {}
+    eng = " ".join(str(x) for x in (f"{e['displacement']:g} L" if e.get("displacement") else None, e.get("cylinders") and f"{e['cylinders']}-cyl",
+                                    e.get("aspiration"), e.get("fuel")) if x) or "unknown"
+    fam = family_for(e)
+    tier = "vehicle-specific limits where set; " if v.get("limits") else ""
+    tier += f"engine-family ({fam}) limits" if fam else "generic limits"
+    return {"known": True, "nickname": v.get("nickname"), "make": v.get("make") or "unknown", "model": v.get("model") or "unknown",
+            "year": v.get("year") or "unknown", "engine": eng, "threshold_tier": tier}
 
 
 def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any]], run_ids: list[str] | None = None) -> dict[str, Any]:
@@ -65,7 +79,7 @@ def build_model(cat: Catalog, row, title: str | None, charts: list[dict[str, Any
         "versions": {"engine": __version__, "dictionary": d.version},
         "dataset": {"id": ds, "file": row["file_name"], "adapter": row["adapter"], "rows": row["row_count"], "duration_s": row["duration_s"],
                     "file_hash": row["file_hash"][:16]},
-        "vehicle": {"make": "unknown", "model": "unknown", "year": "unknown", "engine": "unknown"},
+        "vehicle": _vehicle_block(cat.vehicle_for_dataset(ds)),
         "summary_points": summary_points,
         "quality": {"findings": quality.get("findings", []), "parameters": quality.get("metrics", {}).get("parameters", []),
                     "time": quality.get("metrics", {}).get("time", {}), "usable_for": usable, "notes": quality.get("notes", [])},
