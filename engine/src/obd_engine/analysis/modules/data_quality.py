@@ -64,7 +64,7 @@ class DataQuality(Module):
             if hit:
                 fs.append(finding(f"{sum(h[1] for h in hit)} {label} in {', '.join(h[0] for h in hit[:6])}", "data_quality", "observation", "attention",
                                   reason=why, ev=[evidence(ctx, p, n=n, stat=stat, unit=u) for p, n, u in hit[:6]]))
-        const = [(n, i["constant_value"], i.get("unit"), i["n"]) for n, i in ctx.params.items() if "constant_value" in i and not n.startswith("gps_") and n != "odometer"]
+        const = [(n, i["constant_value"], i.get("unit"), i["n"]) for n, i in ctx.params.items() if "constant_value" in i and i.get("mapped") and not n.startswith("gps_") and n != "odometer"]
         if const:
             fs.append(finding(
                 f"{len(const)} parameter(s) never change in the whole log: " + ", ".join(f"{n} = {v:g} {u or ''}".strip() for n, v, u, _ in const[:6]),
