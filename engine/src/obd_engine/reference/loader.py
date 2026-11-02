@@ -82,7 +82,7 @@ _UNIT_ALIASES = {
     "f": "°F", "°f": "°F", "degf": "°F", "deg f": "°F", "fahrenheit": "°F", "℉": "°F",
     "meters/second": "m/s", "hp": "hp", "nm": "Nm", "kph": "km/h", "kmh": "km/h", "km/h": "km/h", "mph": "mph", "m/s": "m/s",
     "kpa": "kPa", "psi": "psi", "bar": "bar", "mbar": "mbar", "hpa": "hPa", "inhg": "inHg", "mmhg": "mmHg", "pa": "Pa",
-    "g/s": "g/s", "gps": "g/s", "lb/min": "lb/min", "kg/h": "kg/h",
+    "g/s": "g/s", "g/sec": "g/s", "gps": "g/s", "lb/min": "lb/min", "kg/h": "kg/h",
     "l/h": "L/h", "lph": "L/h", "gal/h": "gal/h", "gph": "gal/h",
     "mi": "mi", "miles": "mi", "km": "km", "ft": "ft", "m": "m", "meters": "m",
     "v": "V", "mv": "mV", "volts": "V", "%": "%", "pct": "%", "percent": "%",

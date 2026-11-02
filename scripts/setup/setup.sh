@@ -30,7 +30,10 @@ INSTALLER=""
 if [ -n "$UV" ]; then
   log "Using uv: $UV"
   # 2+3. isolated environment, locked dependency set
-  UV_PROJECT_ENVIRONMENT="$VENV" "$UV" sync --frozen --no-dev --no-editable --reinstall-package obd-engine --python 3.12 --project "$ROOT/engine" >&2 \
+  # uv is a native Windows program under Git Bash: give it Windows-style paths
+  WENGINE="$ROOT/engine"; WVENV="$VENV"
+  if command -v cygpath >/dev/null 2>&1; then WENGINE="$(cygpath -m "$ROOT/engine")"; WVENV="$(cygpath -m "$VENV")"; fi
+  UV_PROJECT_ENVIRONMENT="$WVENV" "$UV" sync --frozen --no-dev --no-editable --reinstall-package obd-engine --python 3.12 --project "$WENGINE" >&2 \
     || fail SETUP_FAILED "uv could not build the engine environment" "Check your internet connection or proxy, then re-run /obd setup. Details are in the output above."
   INSTALLER="uv"
 else

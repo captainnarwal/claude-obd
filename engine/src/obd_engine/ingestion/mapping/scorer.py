@@ -15,6 +15,7 @@ from obd_engine.reference.loader import Dictionary, Param, canon_unit, conversio
 
 CONFIRMED_MIN = 0.9
 UNMAPPED_MAX = 0.5
+COLLISION_MARGIN = 0.15
 _BANK_TOKEN = re.compile(r"\b(b[12]|bank ?[12]|s[12]|sensor ?[12]|b[12]s[12])\b")
 _TEMP_IDS = {"ect", "iat", "oil_temp", "ambient_temp", "trans_temp", "catalyst_temp_b1s1", "diesel_particulate_temp"}
 # parameters whose unit is genuinely ambiguous without a header unit
@@ -227,10 +228,17 @@ def map_columns(
         if base["canonical_id"]:
             claims.setdefault(base["canonical_id"], []).append(len(rows) - 1)
 
-    # collisions: best score keeps the id, others need confirmation
+    # collisions: a clearly better match keeps the id (the runner-up becomes a custom column); a tie needs the user
     for pid, idxs in claims.items():
         if len(idxs) > 1:
             idxs.sort(key=lambda i: -rows[i]["confidence"])
+            best = rows[idxs[0]]
+            if best["method"] == "user" or best["confidence"] - rows[idxs[1]]["confidence"] >= COLLISION_MARGIN:
+                for i in idxs[1:]:
+                    r = rows[i]
+                    if r["method"] != "user":
+                        r.update(canonical_id=None, status="unmapped", note=f"looks like a duplicate of '{clean_text(best['original_name'])}' (kept as custom)")
+                continue
             for i in idxs:
                 r = rows[i]
                 if r["method"] != "user":

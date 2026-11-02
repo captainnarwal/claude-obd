@@ -105,3 +105,11 @@ def test_parameter_not_available_lists_near_matches(run, copy_log):
     _ingest(run, copy_log, "clean", "clean.csv")
     code, env = run("query", "clean.csv", "--params", "boost")
     assert env["error"]["code"] == "PARAMETER_NOT_AVAILABLE" and "near_matches" in env["data"]
+
+
+def test_constant_channel_flagged(run, ws):
+    rows = ["time,Engine RPM (rpm),Throttle position (%)"] + [f"{i * 0.5},{800 + (i * 37) % 900},0.39" for i in range(120)]
+    (ws / "c.csv").write_text("\n".join(rows) + "\n", encoding="utf-8")
+    run("ingest", "c.csv")
+    _, env = run("analyze", "c.csv")
+    assert "never change" in _titles(env) and "throttle_position" in _titles(env)

@@ -181,6 +181,8 @@ def normalize(raw_path: Path, out_path: Path, profile: FileProfile, mappings: li
                     d = np.diff(np.concatenate(([0], same.astype(np.int8), [0])))
                     longest = int((np.where(d == -1)[0] - np.where(d == 1)[0]).max())
                 info["longest_flat_samples"] = longest
+                if vals.size >= 50 and float(np.ptp(vals)) == 0.0:
+                    info["constant_value"] = float(vals[0])
     summary = {
         "rows_raw": n_raw, "rows": df.height, "duplicates_dropped": dup_dropped, "duration_s": round(duration, 3),
         "time": time_issues, "parameters": qual_params,

@@ -18,7 +18,7 @@ USABLE_FOR = {
 
 class DataQuality(Module):
     id = "data_quality"
-    version = "1.0.0"
+    version = "1.0.1"
     title = "Data Quality"
 
     def applicability(self, ctx: Context):
@@ -64,6 +64,15 @@ class DataQuality(Module):
             if hit:
                 fs.append(finding(f"{sum(h[1] for h in hit)} {label} in {', '.join(h[0] for h in hit[:6])}", "data_quality", "observation", "attention",
                                   reason=why, ev=[evidence(ctx, p, n=n, stat=stat, unit=u) for p, n, u in hit[:6]]))
+        const = [(n, i["constant_value"], i.get("unit"), i["n"]) for n, i in ctx.params.items() if "constant_value" in i]
+        if const:
+            fs.append(finding(
+                f"{len(const)} parameter(s) never change in the whole log: " + ", ".join(f"{n} = {v:g} {u or ''}".strip() for n, v, u, _ in const[:6]),
+                "data_quality", "observation", "attention",
+                reason="identical value in every sample; typical of a stuck, unsupported or not-refreshing PID",
+                ev=[evidence(ctx, n, n=k, stat="constant_value", value=v, unit=u) for n, v, u, k in const[:6]],
+                alternatives=["The vehicle or logger does not actually supply this value", "A genuinely fixed quantity"],
+                next_steps=["Check the PID is supported and polled by the logging app before relying on it"]))
         dro = [(r["parameter"], r["dropouts"], r["max_gap_s"]) for r in rows if r["dropouts"]]
         if dro:
             worst = max(d[2] or 0 for d in dro)
